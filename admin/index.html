@@ -610,18 +610,6 @@
       document.getElementById('deployCategory').innerHTML = opts;
       document.getElementById('editCategory').innerHTML = opts;
       renderCategoryList();
-      // ★ 이미지 카테고리 필터 pill 갱신
-      const imgFilter = document.getElementById('imageCatFilter');
-      if (imgFilter) {
-        imgFilter.innerHTML = '<button class="cat-pill active" data-cat="" onclick="setImageCatFilter(\'\')">전체</button>'
-          + categories.map(c => `<button class="cat-pill" data-cat="${c.id}" onclick="setImageCatFilter('${c.id}')">${c.name}</button>`).join('');
-      }
-      // ★ 다운로드 카테고리 필터 옵션 갱신
-      const dlFilter = document.getElementById('dlCatFilter');
-      if (dlFilter) {
-        dlFilter.innerHTML = '<option value="">전체 카테고리</option>'
-          + categories.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
-      }
     }
 
     function renderCategoryList() {
@@ -757,28 +745,56 @@
     async function loadImages(folder) {
       currentImageFolder = folder;
       const pd = document.getElementById('currentPathDisplay');
-      if (folder) { const parts = folder.split('/'); let html = '', acc = ''; parts.forEach((p, i) => { acc += (i ? '/' : '') + p; html += ` / <span class="path-item" onclick="loadImages('${acc}')">${p}</span>`; }); pd.innerHTML = html; } else pd.innerHTML = '';
+      if (folder) {
+        const parts = folder.split('/');
+        let h = '', acc = '';
+        parts.forEach((p, i) => { acc += (i ? '/' : '') + p; h += ` / <span class="path-item" onclick="loadImages('${acc}')">${p}</span>`; });
+        pd.innerHTML = h;
+      } else pd.innerHTML = '';
       document.getElementById('uploadLocationDisplay').textContent = folder ? `/images/${folder}` : '/images';
-      // ★ 루트 폴더일 때만 카테고리 매핑 로드
+
+      // 루트일 때 태그 매핑 로드 + 필터 pill 갱신
       if (!folder) {
         const cr = await api('GET', '/image-folder-categories').catch(() => ({ categories: {} }));
         imageFolderCats = cr.categories || {};
+        refreshImageTagPills();
       }
+
       const r = await api('GET', `/images?folder=${encodeURIComponent(folder)}`);
       const folders = r.folders || [];
+
       document.getElementById('folderGrid').innerHTML = folders.map(f => {
         const fullPath = folder ? `${folder}/${f}` : f;
-        const rootFolder = f; // 루트 폴더명으로 카테고리 키 사용
-        const catId = !folder ? imageFolderCats[rootFolder] : null;
-        const cat = catId ? categories.find(c => c.id === catId) : null;
-        const catBadge = cat ? `<span class="folder-cat-badge" title="카테고리 변경" onclick="event.stopPropagation();setFolderCategory('${rootFolder}')">${cat.name}</span>` : (!folder ? `<span class="folder-cat-badge" style="background:#f3f4f6;color:#9ca3af;" onclick="event.stopPropagation();setFolderCategory('${rootFolder}')">미분류</span>` : '');
-        const hidden = (!folder && imageCatFilter && catId !== imageCatFilter) ? 'cat-hidden' : '';
-        return `<div class="folder-item ${hidden}" onclick="loadImages('${fullPath}')"><div class="folder-icon">📁</div><div class="folder-name">${f}${catBadge}</div></div>`;
+        const tag = !folder ? (imageFolderCats[f] || '') : '';
+        const tagBadge = !folder
+          ? `<span class="folder-cat-badge" title="태그 변경" onclick="event.stopPropagation();setFolderCategory('${f}')">${tag || '태그없음'}</span>`
+          : '';
+        const hidden = (!folder && imageCatFilter && tag !== imageCatFilter) ? 'cat-hidden' : '';
+        return `<div class="folder-item ${hidden}" onclick="loadImages('${fullPath}')">
+          <div class="folder-icon">📁</div>
+          <div class="folder-name">${f}${tagBadge}</div>
+        </div>`;
       }).join('');
-      document.getElementById('imagesGrid').innerHTML = (r.files || []).map(f => { const p = folder ? `${folder}/${f.name}` : f.name; return `<div class="image-item" onclick="showImageActions('${p}')"><img src="/api/images/${p}" onerror="this.style.background='#eee'"><div class="image-name">${f.name}</div></div>`; }).join('');
+
+      document.getElementById('imagesGrid').innerHTML = (r.files || []).map(f => {
+        const p = folder ? `${folder}/${f.name}` : f.name;
+        return `<div class="image-item" onclick="showImageActions('${p}')">
+          <img src="/api/images/${p}" onerror="this.style.background='#eee'">
+          <div class="image-name">${f.name}</div>
+        </div>`;
+      }).join('');
     }
 
-    // ★ 이미지 카테고리 필터 pill 클릭
+    // 이미지 태그 pill 갱신 (imageFolderCats에서 고유 태그 수집)
+    function refreshImageTagPills() {
+      const tags = [...new Set(Object.values(imageFolderCats).filter(t => t))].sort();
+      const bar = document.getElementById('imageCatFilter');
+      if (!bar) return;
+      bar.innerHTML = `<button class="cat-pill ${!imageCatFilter ? 'active' : ''}" data-cat="" onclick="setImageCatFilter('')">전체</button>`
+        + tags.map(t => `<button class="cat-pill ${imageCatFilter === t ? 'active' : ''}" data-cat="${t}" onclick="setImageCatFilter('${t}')">${t}</button>`).join('');
+    }
+
+
     function setImageCatFilter(catId) {
       imageCatFilter = catId;
       document.querySelectorAll('#imageCatFilter .cat-pill').forEach(btn => {
@@ -789,360 +805,20 @@
 
     // ★ 폴더 카테고리 지정 다이얼로그
     async function setFolderCategory(folder) {
-      const catNames = categories.map(c => `${c.name}`).join(' / ');
       const current = imageFolderCats[folder] || '';
-      const currentName = categories.find(c => c.id === current)?.name || '미분류';
-      const opts = ['미분류(해제)', ...categories.map(c => c.name)];
-      const idx = opts.indexOf(currentName);
-      const input = prompt(`[${folder}] 폴더 카테고리 선택\n현재: ${currentName}\n\n번호 입력:\n${opts.map((n,i) => `${i}: ${n}`).join('\n')}`, idx >= 0 ? idx : 0);
-      if (input === null) return;
-      const sel = opts[parseInt(input)];
-      if (!sel) return;
-      const newCatId = sel === '미분류(해제)' ? '' : categories.find(c => c.name === sel)?.id || '';
-      await api('PUT', '/image-folder-categories', { folder, categoryId: newCatId });
-      imageFolderCats[folder] = newCatId;
+      const input = prompt(
+        `[${folder}] 폴더 태그 설정\n현재: ${current || '없음'}\n\n태그명 입력 (비우면 제거):`,
+        current
+      );
+      if (input === null) return; // 취소
+      const tag = input.trim();
+      await api('PUT', '/image-folder-categories', { folder, categoryId: tag });
+      imageFolderCats[folder] = tag;
       loadImages('');
     }
-    function showImageActions(p) { if (confirm(`${p}\n\n확인: 경로 복사\n취소: 삭제`)) { navigator.clipboard.writeText(`/api/images/${p}`); alert('복사됨: /api/images/' + p); } else if (confirm('삭제?')) deleteImage(p); }
-    async function deleteImage(p) { const r = await api('DELETE', `/images/${p}`); if (r.success) loadImages(currentImageFolder); }
-    function openFolderModal() { document.getElementById('folderModal').classList.add('active'); document.getElementById('newFolderName').value = ''; }
-    function closeFolderModal() { document.getElementById('folderModal').classList.remove('active'); }
-    async function createFolder() { const name = document.getElementById('newFolderName').value.trim(); if (!name) return alert('폴더 이름 입력'); const r = await api('POST', '/images/folder', { folderName: name, parentFolder: currentImageFolder }); if (r.success) { closeFolderModal(); loadImages(currentImageFolder); } else alert(r.error); }
-    function openImageUploadModal() { document.getElementById('imageUploadModal').classList.add('active'); document.getElementById('imageFiles').value = ''; document.getElementById('imageFileNames').textContent = ''; }
-    function closeImageUploadModal() { document.getElementById('imageUploadModal').classList.remove('active'); }
-    async function uploadImages() { const files = document.getElementById('imageFiles').files; if (!files.length) return alert('이미지 선택'); const fd = new FormData(); fd.append('folder', currentImageFolder); for (const f of files) fd.append('images', f); const r = await fetch('/api/admin/images', { method: 'POST', headers: { 'x-auth-token': token }, body: fd }).then(x => x.json()); if (r.success) { closeImageUploadModal(); loadImages(currentImageFolder); } else alert(r.error); }
 
-    // 백업 관리
-    async function loadBackups() {
-      const filter = document.getElementById('backupAppFilter').value;
-      const backups = await api('GET', `/backups${filter ? '?appUrl=' + filter : ''}`);
-      const tbody = document.getElementById('backupsTableBody'), empty = document.getElementById('backupsEmptyState'), table = document.querySelector('#backupsTab .table-container');
-      if (!backups.length) { table.style.display = 'none'; empty.style.display = 'block'; return; }
-      table.style.display = 'block'; empty.style.display = 'none';
-      tbody.innerHTML = backups.map(b => {
-        const app = apps.find(a => a.url === b.appUrl);
-        const type = b.name.includes('auto') ? '<span class="badge badge-info backup-type">자동</span>' : '<span class="badge badge-secondary backup-type">수동</span>';
-        const size = formatSize(b.size);
-        return `<tr><td><strong>${app?.name || b.appUrl}</strong></td><td>${new Date(b.date).toLocaleString('ko-KR')}</td><td>${type}</td><td class="backup-size">${size}</td><td><div class="action-btns"><button class="btn btn-success btn-sm" onclick="restoreBackup('${b.appUrl}', '${b.name}')">복원</button><button class="btn btn-danger btn-sm" onclick="deleteBackup('${b.appUrl}', '${b.name}')">삭제</button></div></td></tr>`;
-      }).join('');
-    }
-
-    function formatSize(bytes) {
-      if (bytes < 1024) return bytes + ' B';
-      if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
-      return (bytes / 1024 / 1024).toFixed(1) + ' MB';
-    }
-
-    async function backupApp(appUrl) {
-      if (!confirm(`"${appUrl}" 앱을 백업하시겠습니까?`)) return;
-      const r = await api('POST', `/backups/${appUrl}`);
-      if (r.success) { alert('백업 완료: ' + r.backupName); loadBackups(); }
-      else alert(r.error || '백업 실패');
-    }
-
-    async function backupAll() {
-      if (!confirm('모든 앱 + 설정 + 이미지를 백업하시겠습니까?')) return;
-      const r = await api('POST', '/backups-all');
-      if (r.success) { alert(r.message); loadBackups(); }
-      else alert(r.error || '백업 실패');
-    }
-
-    async function restoreBackup(appUrl, backupName) {
-      if (!confirm(`"${backupName}" 백업으로 복원하시겠습니까?\n\n⚠️ 현재 앱이 이 백업으로 교체됩니다.`)) return;
-      const r = await api('POST', `/backups/${appUrl}/restore`, { backupName });
-      if (r.success) { alert('복원 완료!'); loadApps(); loadBackups(); }
-      else alert(r.error || '복원 실패');
-    }
-
-    async function deleteBackup(appUrl, backupName) {
-      if (!confirm(`"${backupName}" 백업을 삭제하시겠습니까?`)) return;
-      const r = await api('DELETE', `/backups/${appUrl}/${backupName}`);
-      if (r.success) loadBackups();
-      else alert(r.error || '삭제 실패');
-    }
-
-    // API 키 관리
-    async function loadSettings() {
-      try {
-        const s = await api('GET', '/settings');
-        // 일반 API 키 상태
-        const statusEl = document.getElementById('currentKeyStatus');
-        if (s.anthropicApiKeyMasked) {
-          statusEl.textContent = '현재: ' + s.anthropicApiKeyMasked;
-          statusEl.style.color = '#2e7d32';
-        } else {
-          statusEl.textContent = '저장된 키 없음';
-          statusEl.style.color = '#888';
-        }
-        // Admin API 키 상태
-        const adminStatusEl = document.getElementById('currentAdminKeyStatus');
-        if (adminStatusEl) {
-          if (s.anthropicAdminApiKeyMasked) {
-            adminStatusEl.textContent = '현재: ' + s.anthropicAdminApiKeyMasked;
-            adminStatusEl.style.color = '#2e7d32';
-            loadAiUsage();
-          } else {
-            adminStatusEl.textContent = '저장된 Admin 키 없음';
-            adminStatusEl.style.color = '#888';
-            document.getElementById('usageEmpty').style.display = 'block';
-          }
-        }
-        // OpenAI 키 상태
-        const openaiEl = document.getElementById('openaiKeyStatus');
-        if (openaiEl) {
-          if (s.openaiApiKeyMasked) {
-            openaiEl.textContent = '현재: ' + s.openaiApiKeyMasked;
-            openaiEl.style.color = '#2e7d32';
-          } else {
-            openaiEl.textContent = '저장된 키 없음';
-            openaiEl.style.color = '#888';
-          }
-        }
-        // Google 키 상태
-        const googleEl = document.getElementById('googleKeyStatus');
-        if (googleEl) {
-          if (s.googleApiKeyMasked) {
-            googleEl.textContent = '현재: ' + s.googleApiKeyMasked;
-            googleEl.style.color = '#2e7d32';
-          } else {
-            googleEl.textContent = '저장된 키 없음';
-            googleEl.style.color = '#888';
-          }
-        }
-        // 기본 모델 상태
-        const modelSel = document.getElementById('defaultModel');
-        const modelStatus = document.getElementById('currentModelStatus');
-        if (modelSel && s.defaultModel) {
-          modelSel.value = s.defaultModel;
-          modelStatus.textContent = '현재 설정: ' + modelSel.options[modelSel.selectedIndex]?.text;
-          modelStatus.style.color = '#2e7d32';
-        } else if (modelStatus) {
-          modelStatus.textContent = '설정 없음 → Claude Sonnet 4.6 사용 중';
-          modelStatus.style.color = '#888';
-        }
-      } catch(e) {}
-    }
-
-    async function saveApiKey() {
-      const key = document.getElementById('anthropicApiKey').value.trim();
-      if (!key) return alert('API 키를 입력하세요');
-      if (!key.startsWith('sk-ant-')) return alert('올바른 Anthropic API 키 형식이 아닙니다\n(sk-ant-... 로 시작해야 합니다)');
-      const r = await api('POST', '/settings', { anthropicApiKey: key });
-      const msg = document.getElementById('apiKeySaveMsg');
-      if (r.success) {
-        msg.textContent = '✅ API 키 저장됨. pm2 restart 후 앱에 적용됩니다.';
-        msg.style.color = '#2e7d32'; msg.style.display = 'block';
-        document.getElementById('anthropicApiKey').value = '';
-        loadSettings();
-        setTimeout(() => { msg.style.display = 'none'; }, 5000);
-      } else {
-        msg.textContent = '❌ 저장 실패: ' + (r.error || '');
-        msg.style.color = '#e53935'; msg.style.display = 'block';
-      }
-    }
-
-    async function deleteApiKey() {
-      if (!confirm('API 키를 삭제하시겠습니까?')) return;
-      const r = await api('POST', '/settings', { anthropicApiKey: '' });
-      if (r.success) { loadSettings(); } else alert('삭제 실패: ' + (r.error || ''));
-    }
-
-    async function saveAdminApiKey() {
-      const key = document.getElementById('anthropicAdminApiKey').value.trim();
-      if (!key) return alert('Admin API 키를 입력하세요');
-      if (!key.startsWith('sk-ant-')) return alert('올바른 키 형식이 아닙니다');
-      const r = await api('POST', '/settings', { anthropicAdminApiKey: key });
-      const msg = document.getElementById('apiKeySaveMsg');
-      if (r.success) {
-        msg.textContent = '✅ Admin API 키 저장됨';
-        msg.style.color = '#2e7d32'; msg.style.display = 'block';
-        document.getElementById('anthropicAdminApiKey').value = '';
-        loadSettings();
-        setTimeout(() => { msg.style.display = 'none'; }, 4000);
-      } else {
-        msg.textContent = '❌ 저장 실패: ' + (r.error || '');
-        msg.style.color = '#e53935'; msg.style.display = 'block';
-      }
-    }
-
-    async function deleteAdminApiKey() {
-      if (!confirm('Admin API 키를 삭제하시겠습니까?')) return;
-      const r = await api('POST', '/settings', { anthropicAdminApiKey: '' });
-      if (r.success) { loadSettings(); } else alert('삭제 실패: ' + (r.error || ''));
-    }
-
-    // ── OpenAI ──────────────────────────────────
-    async function saveOpenaiKey() {
-      const key = document.getElementById('openaiApiKey').value.trim();
-      if (!key) return alert('OpenAI API 키를 입력하세요');
-      const r = await api('POST', '/settings', { openaiApiKey: key });
-      const msg = document.getElementById('apiKeySaveMsg');
-      if (r.success) {
-        msg.textContent = '✅ OpenAI API 키 저장됨';
-        msg.style.color = '#2e7d32'; msg.style.display = 'block';
-        document.getElementById('openaiApiKey').value = '';
-        loadSettings();
-        setTimeout(() => { msg.style.display = 'none'; }, 4000);
-      } else {
-        msg.textContent = '❌ 저장 실패: ' + (r.error || '');
-        msg.style.color = '#e53935'; msg.style.display = 'block';
-      }
-    }
-    async function deleteOpenaiKey() {
-      if (!confirm('OpenAI API 키를 삭제하시겠습니까?')) return;
-      const r = await api('POST', '/settings', { openaiApiKey: '' });
-      if (r.success) { loadSettings(); } else alert('삭제 실패: ' + (r.error || ''));
-    }
-
-    // ── Google ──────────────────────────────────
-    async function saveGoogleKey() {
-      const key = document.getElementById('googleApiKey').value.trim();
-      if (!key) return alert('Google API 키를 입력하세요');
-      const r = await api('POST', '/settings', { googleApiKey: key });
-      const msg = document.getElementById('apiKeySaveMsg');
-      if (r.success) {
-        msg.textContent = '✅ Google API 키 저장됨';
-        msg.style.color = '#2e7d32'; msg.style.display = 'block';
-        document.getElementById('googleApiKey').value = '';
-        loadSettings();
-        setTimeout(() => { msg.style.display = 'none'; }, 4000);
-      } else {
-        msg.textContent = '❌ 저장 실패: ' + (r.error || '');
-        msg.style.color = '#e53935'; msg.style.display = 'block';
-      }
-    }
-    async function deleteGoogleKey() {
-      if (!confirm('Google API 키를 삭제하시겠습니까?')) return;
-      const r = await api('POST', '/settings', { googleApiKey: '' });
-      if (r.success) { loadSettings(); } else alert('삭제 실패: ' + (r.error || ''));
-    }
-
-    async function saveDefaultModel() {
-      const model = document.getElementById('defaultModel').value;
-      const r = await api('POST', '/settings', { defaultModel: model });
-      const msg = document.getElementById('apiKeySaveMsg');
-      if (r.success) {
-        msg.textContent = '✅ 기본 모델 저장됨: ' + document.getElementById('defaultModel').options[document.getElementById('defaultModel').selectedIndex].text;
-        msg.style.color = '#2e7d32'; msg.style.display = 'block';
-        loadSettings();
-        setTimeout(() => { msg.style.display = 'none'; }, 4000);
-      } else {
-        msg.textContent = '❌ 저장 실패: ' + (r.error || '');
-        msg.style.color = '#e53935'; msg.style.display = 'block';
-      }
-    }
-
-    function toggleApiKeyVisibility(inputId, btnId) {
-      const input = document.getElementById(inputId);
-      const btn = document.getElementById(btnId);
-      if (!input) return;
-      if (input.type === 'password') { input.type = 'text'; btn.textContent = '🙈 숨기기'; }
-      else { input.type = 'password'; btn.textContent = '👁 보기'; }
-    }
-
-    // AI 사용량 조회
-    async function loadAiUsage() {
-      document.getElementById('usageLoading').style.display = 'block';
-      document.getElementById('usageError').style.display = 'none';
-      document.getElementById('usageSummary').style.display = 'none';
-      document.getElementById('usageEmpty').style.display = 'none';
-      try {
-        const r = await api('GET', '/ai-usage');
-        document.getElementById('usageLoading').style.display = 'none';
-        if (!r.success) {
-          document.getElementById('usageError').textContent = '오류: ' + (r.message || r.error);
-          document.getElementById('usageError').style.display = 'block';
-          return;
-        }
-
-        const local = r.local || {};
-        const byApp = local.byApp || {};
-        const byDate = local.byDate || {};
-        const byModel = local.byModel || {};
-        const fmtTok = n => n >= 1e6 ? (n/1e6).toFixed(2)+'M' : n >= 1000 ? (n/1000).toFixed(1)+'K' : String(n||0);
-        // 모델별 비용 단가 (input/output per M)
-        const modelPrice = {
-          'claude-sonnet-4-6': [3, 15],
-          'claude-haiku-4-5-20251001': [1, 5],
-          'claude-opus-4-6': [5, 25]
-        };
-        const calcCost = (model, inp, out) => {
-          const [ip, op] = modelPrice[model] || [3, 15];
-          return (inp/1e6*ip + out/1e6*op);
-        };
-        const estimateTotalCost = () => {
-          return Object.entries(byModel).reduce((sum, [m, d]) => sum + calcCost(m, d.input, d.output), 0);
-        };
-
-        // 전체 합계
-        const totalIn = Object.values(byDate).reduce((s,d) => s+d.input, 0);
-        const totalOut = Object.values(byDate).reduce((s,d) => s+d.output, 0);
-        const totalReq = Object.values(byDate).reduce((s,d) => s+d.requests, 0);
-
-        document.getElementById('totalInputTokens').textContent = fmtTok(totalIn);
-        document.getElementById('totalOutputTokens').textContent = fmtTok(totalOut);
-        document.getElementById('totalCost').textContent = '$' + estimateTotalCost().toFixed(4);
-        document.getElementById('totalRequests').textContent = totalReq.toLocaleString();
-
-        // 앱별 테이블
-        const appTbody = document.getElementById('usageAppBody');
-        const appEntries = Object.entries(byApp).sort((a,b) => b[1].requests - a[1].requests);
-        if (appEntries.length === 0) {
-          appTbody.innerHTML = '<tr><td colspan="4" style="padding:12px;color:#aaa;text-align:center;">아직 사용 내역 없음</td></tr>';
-        } else {
-          appTbody.innerHTML = appEntries.map(([app, d]) => `
-            <tr style="border-bottom:1px solid #f0f0f0;">
-              <td style="padding:8px 12px;font-weight:600;">${app}</td>
-              <td style="padding:8px 12px;text-align:right;">${fmtTok(d.input)}</td>
-              <td style="padding:8px 12px;text-align:right;">${fmtTok(d.output)}</td>
-              <td style="padding:8px 12px;text-align:right;">${d.requests.toLocaleString()}</td>
-            </tr>`).join('');
-        }
-
-        // 일별 테이블
-        const dateTbody = document.getElementById('usageDailyBody');
-        const sortedDates = Object.keys(byDate).sort().reverse();
-        if (sortedDates.length === 0) {
-          dateTbody.innerHTML = '<tr><td colspan="4" style="padding:12px;color:#aaa;text-align:center;">이번 달 사용 내역 없음</td></tr>';
-        } else {
-          dateTbody.innerHTML = sortedDates.map(date => {
-            const d = byDate[date];
-            return `<tr style="border-bottom:1px solid #f0f0f0;">
-              <td style="padding:8px 12px;">${date}</td>
-              <td style="padding:8px 12px;text-align:right;">${fmtTok(d.input)}</td>
-              <td style="padding:8px 12px;text-align:right;">${fmtTok(d.output)}</td>
-              <td style="padding:8px 12px;text-align:right;">${d.requests.toLocaleString()}</td>
-            </tr>`;
-          }).join('');
-        }
-
-        // Anthropic 공식 데이터 표시
-        const anthropicNote = document.getElementById('anthropicNote');
-        if (anthropicNote) {
-          if (r.anthropic) {
-            anthropicNote.textContent = '✅ Anthropic 공식 데이터 연동됨';
-            anthropicNote.style.color = '#2e7d32';
-          } else if (!r.hasAdminKey) {
-            anthropicNote.textContent = 'ℹ️ Admin API 키 등록 시 Anthropic 공식 사용량도 확인 가능합니다';
-            anthropicNote.style.color = '#888';
-          } else {
-            anthropicNote.textContent = '⚠️ Anthropic 공식 데이터 조회 실패 (로컬 로그만 표시)';
-            anthropicNote.style.color = '#f59e0b';
-          }
-        }
-
-        document.getElementById('usageSummary').style.display = 'block';
-      } catch(e) {
-        document.getElementById('usageLoading').style.display = 'none';
-        document.getElementById('usageError').textContent = '네트워크 오류: ' + e.message;
-        document.getElementById('usageError').style.display = 'block';
-      }
-    }
-
-    // 비밀번호 변경
-    document.getElementById('passwordForm').addEventListener('submit', async (e) => { e.preventDefault(); const cur = document.getElementById('currentPassword').value, nw = document.getElementById('newPassword').value, cf = document.getElementById('confirmPassword').value; if (nw !== cf) return alert('비밀번호 불일치'); const r = await api('POST', '/change-password', { currentPassword: cur, newPassword: nw }); if (r.success) { alert('변경됨'); document.getElementById('passwordForm').reset(); } else alert(r.error); });
-
-    // ===== 다운로드 파일 관리 =====
+    
+    // ★ 다운로드 파일 카테고리 지정 (태그 입력)
     let downloadFiles = [];
 
     async function loadDownloads() {
@@ -1153,17 +829,28 @@
       if (r.success) {
         downloadFiles = r.files;
         downloadFileCats = cr.categories || {};
+        refreshDownloadTagFilter();
         renderDownloads();
       }
+    }
+
+    // 저장된 태그에서 고유값 수집 → filter select 갱신
+    function refreshDownloadTagFilter() {
+      const tags = [...new Set(Object.values(downloadFileCats).filter(t => t))].sort();
+      const sel = document.getElementById('dlCatFilter');
+      if (!sel) return;
+      const cur = sel.value;
+      sel.innerHTML = '<option value="">전체 태그</option>'
+        + tags.map(t => `<option value="${t}"${cur===t?' selected':''}>${t}</option>`).join('');
     }
 
     function renderDownloads() {
       const tbody = document.getElementById('downloadsTableBody');
       const empty = document.getElementById('downloadsEmptyState');
-      const filterCat = document.getElementById('dlCatFilter')?.value || '';
+      const filterTag = document.getElementById('dlCatFilter')?.value || '';
 
-      const filtered = filterCat
-        ? downloadFiles.filter(f => downloadFileCats[f.name] === filterCat)
+      const filtered = filterTag
+        ? downloadFiles.filter(f => downloadFileCats[f.name] === filterTag)
         : downloadFiles;
 
       if (filtered.length === 0) {
@@ -1175,21 +862,22 @@
       empty.style.display = 'none';
       tbody.innerHTML = filtered.map(f => {
         const fullUrl = window.location.origin + f.url;
-        const catId = downloadFileCats[f.name] || '';
-        const cat = catId ? categories.find(c => c.id === catId) : null;
-        const catBadge = cat
-          ? `<span class="folder-cat-badge">${cat.name}</span>`
-          : '<span style="font-size:10px;color:#9ca3af;">미분류</span>';
-        const catSelect = `<select onchange="setDownloadFileCat('${f.name}',this.value)" style="font-size:11px;padding:2px 4px;border:1px solid #d0d0d0;border-radius:6px;margin-left:4px;">
-          <option value="">미분류</option>
-          ${categories.map(c => `<option value="${c.id}"${catId===c.id?' selected':''}>${c.name}</option>`).join('')}
-        </select>`;
+        const tag = downloadFileCats[f.name] || '';
+        const tagBadge = tag
+          ? `<span class="folder-cat-badge">${tag}</span>`
+          : '<span style="font-size:10px;color:#9ca3af;">태그없음</span>';
         return `<tr>
           <td><strong>${f.name}</strong></td>
-          <td>${catBadge}${catSelect}</td>
+          <td>
+            ${tagBadge}
+            <input type="text" value="${tag}" placeholder="태그 입력"
+              style="font-size:11px;padding:2px 6px;border:1px solid #d0d0d0;border-radius:6px;width:80px;margin-left:4px;"
+              onchange="setDownloadFileCat('${f.name}',this.value.trim())"
+              onkeydown="if(event.key==='Enter'){setDownloadFileCat('${f.name}',this.value.trim());this.blur();}">
+          </td>
           <td>${f.sizeFormatted}</td>
           <td>${new Date(f.uploadedAt).toLocaleString('ko-KR')}</td>
-          <td><input type="text" value="${fullUrl}" readonly style="width:260px;padding:4px 8px;border:1px solid #ddd;border-radius:4px;font-size:12px;" onclick="this.select()"> <button class="btn btn-sm btn-secondary" onclick="copyToClipboard('${fullUrl}')">복사</button></td>
+          <td><input type="text" value="${fullUrl}" readonly style="width:240px;padding:4px 8px;border:1px solid #ddd;border-radius:4px;font-size:12px;" onclick="this.select()"> <button class="btn btn-sm btn-secondary" onclick="copyToClipboard('${fullUrl}')">복사</button></td>
           <td class="action-btns">
             <a href="${f.url}" download class="btn btn-sm btn-success">다운로드</a>
             <button class="btn btn-sm btn-danger" onclick="deleteDownloadFile('${f.name}')">삭제</button>
@@ -1198,10 +886,10 @@
       }).join('');
     }
 
-    // ★ 다운로드 파일 카테고리 지정 (인라인 select)
-    async function setDownloadFileCat(filename, categoryId) {
-      await api('PUT', '/download-file-categories', { filename, categoryId });
-      downloadFileCats[filename] = categoryId;
+    async function setDownloadFileCat(filename, tag) {
+      await api('PUT', '/download-file-categories', { filename, categoryId: tag });
+      downloadFileCats[filename] = tag;
+      refreshDownloadTagFilter();
       renderDownloads();
     }
 

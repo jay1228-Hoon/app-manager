@@ -25,19 +25,20 @@ proxy.on('error', (err, req, res) => {
 });
 
 // ===== 설정 =====
+const DATA_ROOT = path.join(__dirname, '..', 'data');
 const CONFIG = {
-  APPS_DIR: '/var/www/apps',
-  IMAGES_DIR: '/var/www/private/images',
-  DOWNLOADS_DIR: '/var/www/downloads',
-  BACKUPS_DIR: '/var/www/backups',
-  APP_ZIPS_DIR: '/var/www/app-zips',  // 원본 ZIP 보관
-  AUTH_FILE: '/var/www/app-server/auth.json',
-  IP_CONFIG_FILE: '/var/www/app-server/ip-config.json',  // IP 허용 목록
-  SETTINGS_FILE: '/var/www/app-server/settings.json',  // 글로벌 설정 (API 키 등)
-  AI_LOG_FILE: '/var/www/app-server/ai-usage-log.json',  // 앱별 AI 사용량 로그
-  BATCH_LOG_FILE: '/var/www/app-server/ai-batch-log.json', // 배치 작업 로그
-  IMAGE_CATS_FILE: '/var/www/app-server/image-folder-cats.json',   // 이미지 폴더 카테고리 매핑
-  DOWNLOAD_CATS_FILE: '/var/www/app-server/download-file-cats.json', // 다운로드 파일 카테고리 매핑
+  APPS_DIR: path.join(DATA_ROOT, 'apps'),
+  IMAGES_DIR: path.join(DATA_ROOT, 'images'),
+  DOWNLOADS_DIR: path.join(DATA_ROOT, 'downloads'),
+  BACKUPS_DIR: path.join(DATA_ROOT, 'backups'),
+  APP_ZIPS_DIR: path.join(DATA_ROOT, 'app-zips'),
+  AUTH_FILE: path.join(DATA_ROOT, 'config', 'auth.json'),
+  IP_CONFIG_FILE: path.join(DATA_ROOT, 'config', 'ip-config.json'),
+  SETTINGS_FILE: path.join(DATA_ROOT, 'config', 'settings.json'),
+  AI_LOG_FILE: path.join(DATA_ROOT, 'config', 'ai-usage-log.json'),
+  BATCH_LOG_FILE: path.join(DATA_ROOT, 'config', 'ai-batch-log.json'),
+  IMAGE_CATS_FILE: path.join(DATA_ROOT, 'config', 'image-folder-cats.json'),
+  DOWNLOAD_CATS_FILE: path.join(DATA_ROOT, 'config', 'download-file-cats.json'),
   DEFAULT_USERNAME: 'admin',
   DEFAULT_PASSWORD: 'doodle99!*',
   PORT_START: 4001,
@@ -622,14 +623,18 @@ app.all('/api/apps/:appUrl', async (req, res) => {
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-const upload = multer({ dest: '/tmp/uploads/' });
+// 프론트엔드 정적 파일 서빙 (index.html, admin/)
+const FRONTEND_DIR = path.join(__dirname, '..');
+app.use(express.static(FRONTEND_DIR));
+
+const upload = multer({ dest: path.join(DATA_ROOT, 'tmp-uploads') });
 
 // ========================================
 // 관리자 API (body parser 필요)
 // ========================================
 
 // ===== ★ 세션 영속화 — 재시작 후 재로그인 불필요 =====
-const SESSION_FILE = '/var/www/app-server/sessions.json';
+const SESSION_FILE = path.join(DATA_ROOT, 'config', 'sessions.json');
 
 async function loadSessions() {
   try {
