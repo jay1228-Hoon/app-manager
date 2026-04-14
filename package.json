@@ -1,0 +1,21 @@
+{
+  "name": "yoastory-app-manager",
+  "version": "1.0.0",
+  "description": "유아스토리 앱 관리 서버",
+  "main": "app.js",
+  "scripts": {
+    "start": "node app.js",
+    "dev": "nodemon app.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "multer": "^1.4.5-lts.1",
+    "unzipper": "^0.10.14",
+    "fs-extra": "^11.2.0",
+    "node-fetch": "^3.3.2",
+    "http-proxy": "^1.18.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.2"
+  }
+}

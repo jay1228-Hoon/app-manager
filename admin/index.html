@@ -1,0 +1,1396 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>앱 관리자</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f7fa; min-height: 100vh; }
+    .login-container { display: flex; justify-content: center; align-items: center; min-height: 100vh; }
+    .login-box { background: white; padding: 40px; border-radius: 16px; box-shadow: 0 4px 24px rgba(0,0,0,0.1); width: 100%; max-width: 400px; }
+    .login-box h1 { text-align: center; margin-bottom: 30px; color: #333; }
+    .form-group { margin-bottom: 20px; }
+    .form-group label { display: block; margin-bottom: 8px; font-weight: 500; color: #555; }
+    .form-group input, .form-group select { width: 100%; padding: 12px 16px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 14px; }
+    .form-group input:focus, .form-group select:focus { outline: none; border-color: #4A90D9; }
+    .btn { padding: 12px 24px; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; }
+    .btn-primary { background: #4A90D9; color: white; }
+    .btn-primary:hover { background: #357ABD; }
+    .btn-secondary { background: #e0e0e0; color: #333; }
+    .btn-danger { background: #e74c3c; color: white; }
+    .btn-success { background: #27ae60; color: white; }
+    .btn-warning { background: #f39c12; color: white; }
+    .btn-info { background: #17a2b8; color: white; }
+    .btn-sm { padding: 6px 12px; font-size: 12px; }
+    .btn-block { width: 100%; }
+    .main-container { display: none; }
+    .header { background: white; padding: 16px 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); display: flex; justify-content: space-between; align-items: center; }
+    .header h1 { font-size: 20px; color: #333; }
+    .header-right { display: flex; gap: 12px; align-items: center; }
+    .user-info { color: #666; font-size: 14px; }
+    .tabs { display: flex; background: white; border-bottom: 1px solid #e0e0e0; padding: 0 24px; flex-wrap: wrap; }
+    .tab { padding: 16px 24px; cursor: pointer; border-bottom: 3px solid transparent; color: #666; font-weight: 500; }
+    .tab:hover { color: #4A90D9; }
+    .tab.active { color: #4A90D9; border-bottom-color: #4A90D9; }
+    .content { padding: 24px; max-width: 1400px; margin: 0 auto; }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+    .list-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 12px; }
+    .list-header h2 { font-size: 18px; color: #333; }
+    .filter-group { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+    .filter-group select { padding: 8px 12px; border: 1px solid #ddd; border-radius: 6px; }
+    .table-container { background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.06); overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; min-width: 800px; }
+    th, td { padding: 14px 16px; text-align: left; border-bottom: 1px solid #f0f0f0; }
+    th { background: #f8f9fa; font-weight: 600; color: #555; font-size: 13px; }
+    tr:hover { background: #f8f9fa; }
+    .badge { display: inline-block; padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: 500; }
+    .badge-success { background: #d4edda; color: #155724; }
+    .badge-danger { background: #f8d7da; color: #721c24; }
+    .badge-info { background: #d1ecf1; color: #0c5460; }
+    .badge-secondary { background: #e9ecef; color: #6c757d; }
+    .badge-warning { background: #fff3cd; color: #856404; }
+    .app-link { color: #4A90D9; text-decoration: none; font-weight: 500; }
+    .app-link:hover { text-decoration: underline; }
+    .action-btns { display: flex; gap: 8px; flex-wrap: wrap; }
+    .modal-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 1000; justify-content: center; align-items: center; }
+    .modal-overlay.active { display: flex; }
+    .modal { background: white; border-radius: 16px; width: 100%; max-width: 600px; max-height: 90vh; overflow-y: auto; margin: 20px; }
+    .modal-header { padding: 20px 24px; border-bottom: 1px solid #e0e0e0; display: flex; justify-content: space-between; align-items: center; }
+    .modal-header h3 { font-size: 18px; color: #333; }
+    .modal-close { background: none; border: none; font-size: 24px; cursor: pointer; color: #999; }
+    .modal-body { padding: 24px; }
+    .modal-footer { padding: 16px 24px; border-top: 1px solid #e0e0e0; display: flex; justify-content: flex-end; gap: 12px; }
+    .file-upload { border: 2px dashed #ddd; border-radius: 8px; padding: 20px; text-align: center; cursor: pointer; }
+    .file-upload:hover { border-color: #4A90D9; background: #f8f9fa; }
+    .file-upload.has-file { border-color: #27ae60; background: #d4edda; }
+    .file-upload input { display: none; }
+    .cat-pill { padding:4px 12px;border-radius:20px;border:1.5px solid #d1d5db;background:#fff;font-size:12px;cursor:pointer;font-family:inherit;transition:all .15s; }
+    .cat-pill.active { background:#4f46e5;border-color:#4f46e5;color:#fff;font-weight:700; }
+    .cat-pill:hover:not(.active) { border-color:#4f46e5;color:#4f46e5; }
+    .folder-cat-badge { font-size:9px;padding:1px 6px;border-radius:10px;background:#eef2ff;color:#4f46e5;font-weight:600;margin-left:4px;cursor:pointer;vertical-align:middle; }
+    .folder-item.cat-hidden { display:none; }
+    .file-upload .file-name { margin-top: 8px; font-size: 13px; color: #666; }
+    .folder-path { display: flex; align-items: center; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+    .path-item { color: #4A90D9; cursor: pointer; }
+    .path-item:hover { text-decoration: underline; }
+    .folder-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 16px; margin-bottom: 24px; }
+    .folder-item { background: white; border-radius: 12px; padding: 20px; text-align: center; cursor: pointer; border: 2px solid transparent; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+    .folder-item:hover { border-color: #4A90D9; }
+    .folder-icon { font-size: 40px; margin-bottom: 8px; }
+    .folder-name { font-size: 13px; color: #333; word-break: break-all; }
+    .images-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 16px; }
+    .image-item { background: white; border-radius: 12px; overflow: hidden; cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+    .image-item:hover { box-shadow: 0 8px 24px rgba(0,0,0,0.1); }
+    .image-item img { width: 100%; height: 120px; object-fit: cover; background: #f0f0f0; }
+    .image-name { padding: 8px; font-size: 12px; color: #666; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .category-list { background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+    .category-item { display: flex; justify-content: space-between; align-items: center; padding: 14px 16px; border-bottom: 1px solid #f0f0f0; }
+    .category-item:last-child { border-bottom: none; }
+    .category-name { font-weight: 500; color: #333; }
+    .category-count { color: #999; font-size: 13px; }
+    .empty-state { text-align: center; padding: 60px 20px; color: #999; }
+    .empty-state .icon { font-size: 48px; margin-bottom: 16px; }
+    .app-detail { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .app-detail .full-width { grid-column: 1 / -1; }
+    .backup-size { font-size: 12px; color: #999; }
+    .backup-type { font-size: 11px; }
+  </style>
+</head>
+<body>
+  <div class="login-container" id="loginContainer">
+    <div class="login-box">
+      <h1>🔐 앱 관리자</h1>
+      <form id="loginForm">
+        <div class="form-group"><label>아이디</label><input type="text" id="username" required></div>
+        <div class="form-group"><label>비밀번호</label><input type="password" id="password" required></div>
+        <button type="submit" class="btn btn-primary btn-block">로그인</button>
+      </form>
+    </div>
+  </div>
+
+  <div class="main-container" id="mainContainer">
+    <div class="header">
+      <h1>📱 앱 관리자</h1>
+      <div class="header-right">
+        <span class="user-info" id="userInfo"></span>
+        <button class="btn btn-secondary btn-sm" onclick="logout()">로그아웃</button>
+      </div>
+    </div>
+    <div class="tabs">
+      <div class="tab active" data-tab="apps">📋 앱 목록</div>
+      <div class="tab" data-tab="deploy">🚀 새 앱 배포</div>
+      <div class="tab" data-tab="categories">🏷️ 카테고리</div>
+      <div class="tab" data-tab="images">🖼️ 공통 이미지</div>
+      <div class="tab" data-tab="downloads">📥 다운로드 파일</div>
+      <div class="tab" data-tab="backups">💾 백업</div>
+      <div class="tab" data-tab="settings">⚙️ 설정</div>
+    </div>
+    <div class="content">
+      <!-- 앱 목록 탭 -->
+      <div class="tab-content active" id="appsTab">
+        <div class="list-header">
+          <h2>배포된 앱</h2>
+          <div class="filter-group">
+            <select id="categoryFilter" onchange="loadApps()"><option value="">전체 카테고리</option></select>
+            <button class="btn btn-primary" onclick="openDeployTab()">+ 새 앱 배포</button>
+          </div>
+        </div>
+        <div class="table-container"><table><thead><tr><th>앱 이름</th><th>URL</th><th>카테고리</th><th>상태</th><th>구성</th><th>AI</th><th>배포일</th><th>작업</th></tr></thead><tbody id="appsTableBody"></tbody></table></div>
+        <div class="empty-state" id="appsEmptyState" style="display:none;"><div class="icon">📭</div><p>배포된 앱이 없습니다</p></div>
+      </div>
+
+      <!-- 새 앱 배포 탭 -->
+      <div class="tab-content" id="deployTab">
+        <div class="list-header"><h2>새 앱 배포</h2></div>
+        <div class="table-container" style="padding: 24px;">
+          <form id="deployForm">
+            <div class="app-detail">
+              <div class="form-group"><label>앱 이름 *</label><input type="text" id="deployAppName" required placeholder="예: 랜딩 페이지 빌더"></div>
+              <div class="form-group"><label>URL 경로 *</label><input type="text" id="deployAppUrl" required placeholder="예: landingpagebuilder"></div>
+              <div class="form-group"><label>카테고리</label><select id="deployCategory"><option value="">선택 안 함</option></select></div>
+              <div class="form-group"><label>설명</label><input type="text" id="deployDescription" placeholder="앱에 대한 간단한 설명"></div>
+              <div class="form-group"><label>프론트엔드 ZIP</label><div class="file-upload" onclick="document.getElementById('deployFrontend').click()"><div>📁 클릭하여 파일 선택</div><div class="file-name" id="deployFrontendName"></div><input type="file" id="deployFrontend" accept=".zip"></div></div>
+              <div class="form-group"><label>백엔드 ZIP</label><div class="file-upload" onclick="document.getElementById('deployBackend').click()"><div>📁 클릭하여 파일 선택</div><div class="file-name" id="deployBackendName"></div><input type="file" id="deployBackend" accept=".zip"></div></div>
+            </div>
+            <div style="margin-top: 24px;"><button type="submit" class="btn btn-primary">🚀 배포하기</button></div>
+          </form>
+        </div>
+      </div>
+
+      <!-- 카테고리 탭 -->
+      <div class="tab-content" id="categoriesTab">
+        <div class="list-header"><h2>카테고리 관리</h2><button class="btn btn-primary" onclick="openCategoryModal()">+ 새 카테고리</button></div>
+        <div class="category-list" id="categoryList"></div>
+        <div class="empty-state" id="categoryEmptyState" style="display:none;"><div class="icon">🏷️</div><p>등록된 카테고리가 없습니다</p></div>
+      </div>
+
+      <!-- 공통 이미지 탭 -->
+      <div class="tab-content" id="imagesTab">
+        <div class="list-header"><h2>공통 이미지 관리</h2><div class="filter-group"><button class="btn btn-secondary" onclick="openFolderModal()">📁 새 폴더</button><button class="btn btn-primary" onclick="openImageUploadModal()">+ 이미지 업로드</button></div></div>
+        <!-- ★ 카테고리 필터 -->
+        <div id="imageCatFilter" style="display:flex;gap:6px;flex-wrap:wrap;padding:8px 0 4px;border-bottom:1px solid #e5e7eb;margin-bottom:8px;">
+          <button class="cat-pill active" data-cat="" onclick="setImageCatFilter('')">전체</button>
+        </div>
+        <div class="folder-path"><span>📁</span><span class="path-item" onclick="loadImages('')">images</span><span id="currentPathDisplay"></span></div>
+        <div class="folder-grid" id="folderGrid"></div>
+        <div class="images-grid" id="imagesGrid"></div>
+      </div>
+
+      <!-- 다운로드 파일 탭 -->
+      <div class="tab-content" id="downloadsTab">
+        <div class="list-header">
+          <h2>다운로드 파일 관리</h2>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <select id="dlCatFilter" onchange="renderDownloads()" style="padding:6px 10px;border:1px solid #d0d0d0;border-radius:8px;font-size:13px;background:#fff;">
+              <option value="">전체 카테고리</option>
+            </select>
+            <button class="btn btn-primary" onclick="openDownloadUploadModal()">+ 파일 업로드</button>
+          </div>
+        </div>
+        <div class="table-container">
+          <table>
+            <thead><tr><th>파일명</th><th>카테고리</th><th>크기</th><th>업로드 일시</th><th>다운로드 URL</th><th>작업</th></tr></thead>
+            <tbody id="downloadsTableBody"></tbody>
+          </table>
+        </div>
+        <div class="empty-state" id="downloadsEmptyState" style="display:none;"><div class="icon">📥</div><p>업로드된 파일이 없습니다</p></div>
+      </div>
+
+      <!-- 백업 탭 -->
+      <div class="tab-content" id="backupsTab">
+        <div class="list-header">
+          <h2>백업 관리</h2>
+          <div class="filter-group">
+            <select id="backupAppFilter" onchange="loadBackups()"><option value="">전체 앱</option></select>
+            <button class="btn btn-warning" onclick="backupAll()">📦 전체 백업</button>
+          </div>
+        </div>
+        <div class="table-container">
+          <table>
+            <thead><tr><th>앱</th><th>백업 일시</th><th>유형</th><th>크기</th><th>작업</th></tr></thead>
+            <tbody id="backupsTableBody"></tbody>
+          </table>
+        </div>
+        <div class="empty-state" id="backupsEmptyState" style="display:none;"><div class="icon">💾</div><p>백업이 없습니다</p></div>
+      </div>
+
+      <!-- 설정 탭 -->
+      <div class="tab-content" id="settingsTab">
+        <div class="list-header"><h2>설정</h2></div>
+        
+        <!-- IP 관리 섹션 -->
+        <div class="table-container" style="padding: 24px; margin-bottom: 20px;">
+          <h3 style="margin-bottom: 20px;">🔒 IP 접근 제한</h3>
+          <p style="color: #666; margin-bottom: 16px; font-size: 14px;">등록된 IP만 관리자 페이지에 접근할 수 있습니다. 목록이 비어있으면 모든 IP가 허용됩니다.</p>
+          <p style="color: #e74c3c; margin-bottom: 16px; font-size: 13px;">⚠️ 첫 IP 추가 시 현재 접속 IP가 자동으로 함께 등록됩니다.</p>
+          <div style="display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; align-items: center;">
+            <span style="color: #555;">내 현재 IP: <strong id="myIpDisplay">-</strong></span>
+            <button class="btn btn-success btn-sm" onclick="addMyIp()">내 IP 추가</button>
+          </div>
+          <div style="display: flex; gap: 12px; margin-bottom: 12px;">
+            <input type="text" id="newIpInput" placeholder="IP 주소 (예: 123.456.789.0)" style="flex: 1; padding: 10px; border: 2px solid #e0e0e0; border-radius: 8px;">
+            <button class="btn btn-primary" onclick="addIp()">추가</button>
+          </div>
+          <p style="color: #999; margin-bottom: 20px; font-size: 12px;">💡 여러 IP를 쉼표(,)로 구분하여 한 번에 추가할 수 있습니다.</p>
+          <div id="ipList"></div>
+          <div id="ipEmptyState" class="empty-state" style="display: none; padding: 30px;"><div class="icon">🌐</div><p>등록된 IP가 없습니다 (모든 IP 허용)</p></div>
+        </div>
+        
+
+        <!-- API 키 관리 섹션 -->
+        <div class="table-container" style="padding: 24px; margin-bottom: 20px;">
+          <h3 style="margin-bottom: 6px;">🤖 AI API 키 관리</h3>
+          <p style="color: #666; margin-bottom: 20px; font-size: 14px;">입력한 키는 모든 앱의 백엔드 서버에 <code>ANTHROPIC_API_KEY</code> 환경변수로 자동 전달됩니다.</p>
+
+          <!-- 일반 API 키 -->
+          <div style="background:#f8f9fa;border-radius:10px;padding:18px;margin-bottom:16px;">
+            <div style="font-weight:600;font-size:14px;margin-bottom:12px;color:#333;">🔑 API Key <span style="font-size:11px;color:#888;font-weight:400;">(문장 생성용 · sk-ant-api03-...)</span></div>
+            <div class="form-group" style="max-width: 600px;margin-bottom:8px;">
+              <div style="display: flex; gap: 8px; align-items: center;">
+                <input type="password" id="anthropicApiKey" placeholder="sk-ant-api03-..." style="flex: 1;">
+                <button type="button" class="btn btn-secondary" onclick="toggleApiKeyVisibility('anthropicApiKey','toggleKeyBtn')" id="toggleKeyBtn" style="white-space: nowrap;">👁 보기</button>
+              </div>
+              <small id="currentKeyStatus" style="color: #888; margin-top: 6px; display: block;"></small>
+            </div>
+            <div style="display: flex; gap: 8px;">
+              <button class="btn btn-primary btn-sm" onclick="saveApiKey()">저장</button>
+              <button class="btn btn-secondary btn-sm" onclick="deleteApiKey()" style="color: #e53935;">삭제</button>
+            </div>
+          </div>
+
+          <!-- Admin API 키 -->
+          <div style="background:#f0f7ff;border-radius:10px;padding:18px;margin-bottom:16px;">
+            <div style="font-weight:600;font-size:14px;margin-bottom:4px;color:#333;">📊 Admin API Key <span style="font-size:11px;color:#888;font-weight:400;">(사용량 조회용 · sk-ant-admin01-...)</span></div>
+            <div style="font-size:12px;color:#666;margin-bottom:12px;">console.anthropic.com → Settings → Admin API Keys 에서 발급</div>
+            <div class="form-group" style="max-width: 600px;margin-bottom:8px;">
+              <div style="display: flex; gap: 8px; align-items: center;">
+                <input type="password" id="anthropicAdminApiKey" placeholder="sk-ant-admin01-..." style="flex: 1;">
+                <button type="button" class="btn btn-secondary" onclick="toggleApiKeyVisibility('anthropicAdminApiKey','toggleAdminKeyBtn')" id="toggleAdminKeyBtn" style="white-space: nowrap;">👁 보기</button>
+              </div>
+              <small id="currentAdminKeyStatus" style="color: #888; margin-top: 6px; display: block;"></small>
+            </div>
+            <div style="display: flex; gap: 8px;">
+              <button class="btn btn-primary btn-sm" onclick="saveAdminApiKey()">저장</button>
+              <button class="btn btn-secondary btn-sm" onclick="deleteAdminApiKey()" style="color: #e53935;">삭제</button>
+            </div>
+          </div>
+
+          <!-- OpenAI API 키 -->
+          <div style="background:#f0fff4;border-radius:10px;padding:18px;margin-bottom:16px;border:1px solid #b2dfdb;">
+            <div style="font-weight:600;font-size:14px;margin-bottom:4px;color:#1b5e20;">🟢 OpenAI API Key <span style="font-size:11px;color:#888;font-weight:400;">(GPT-4o, o3, o4-mini 사용 시 필요)</span></div>
+            <div style="font-size:12px;color:#666;margin-bottom:12px;">platform.openai.com → API keys 에서 발급 (sk-... 로 시작)</div>
+            <div class="form-group" style="max-width:600px;margin-bottom:8px;">
+              <div style="display:flex;gap:8px;align-items:center;">
+                <input type="password" id="openaiApiKey" placeholder="sk-..." style="flex:1;">
+                <button type="button" class="btn btn-secondary" onclick="toggleApiKeyVisibility('openaiApiKey','toggleOpenaiBtn')" id="toggleOpenaiBtn" style="white-space:nowrap;">👁 보기</button>
+              </div>
+              <small id="openaiKeyStatus" style="color:#888;margin-top:6px;display:block;"></small>
+            </div>
+            <div style="display:flex;gap:8px;">
+              <button class="btn btn-primary btn-sm" onclick="saveOpenaiKey()">저장</button>
+              <button class="btn btn-secondary btn-sm" onclick="deleteOpenaiKey()" style="color:#e53935;">삭제</button>
+            </div>
+          </div>
+
+          <!-- Google API 키 -->
+          <div style="background:#e8f4fd;border-radius:10px;padding:18px;margin-bottom:16px;border:1px solid #90caf9;">
+            <div style="font-weight:600;font-size:14px;margin-bottom:4px;color:#0d47a1;">🔵 Google AI API Key <span style="font-size:11px;color:#888;font-weight:400;">(Gemini 사용 시 필요)</span></div>
+            <div style="font-size:12px;color:#666;margin-bottom:12px;">aistudio.google.com → Get API key 에서 발급 (AIza... 로 시작)</div>
+            <div class="form-group" style="max-width:600px;margin-bottom:8px;">
+              <div style="display:flex;gap:8px;align-items:center;">
+                <input type="password" id="googleApiKey" placeholder="AIza..." style="flex:1;">
+                <button type="button" class="btn btn-secondary" onclick="toggleApiKeyVisibility('googleApiKey','toggleGoogleBtn')" id="toggleGoogleBtn" style="white-space:nowrap;">👁 보기</button>
+              </div>
+              <small id="googleKeyStatus" style="color:#888;margin-top:6px;display:block;"></small>
+            </div>
+            <div style="display:flex;gap:8px;">
+              <button class="btn btn-primary btn-sm" onclick="saveGoogleKey()">저장</button>
+              <button class="btn btn-secondary btn-sm" onclick="deleteGoogleKey()" style="color:#e53935;">삭제</button>
+            </div>
+          </div>
+
+          <!-- 기본 모델 선택 -->
+          <div style="background:#f8f9fa;border-radius:10px;padding:18px;margin-bottom:0;">
+            <div style="font-weight:600;font-size:14px;margin-bottom:10px;color:#333;">🧠 기본 AI 모델</div>
+            <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+              <select id="defaultModel" style="flex:1;max-width:360px;padding:9px 12px;border:1.5px solid #d0d0d0;border-radius:8px;font-size:13px;background:#fff;">
+                <optgroup label="🟣 Anthropic Claude">
+                  <option value="claude-sonnet-4-6">Claude Sonnet 4.6 — 균형 (기본값)</option>
+                  <option value="claude-haiku-4-5-20251001">Claude Haiku 4.5 — 빠름·저렴</option>
+                  <option value="claude-opus-4-6">Claude Opus 4.6 — 고성능</option>
+                </optgroup>
+                <optgroup label="🟢 OpenAI GPT">
+                  <option value="gpt-4o">GPT-4o — 균형</option>
+                  <option value="gpt-4o-mini">GPT-4o mini — 빠름·저렴</option>
+                  <option value="o3">o3 — 고급 추론</option>
+                  <option value="o4-mini">o4-mini — 추론·저렴</option>
+                </optgroup>
+                <optgroup label="🔵 Google Gemini">
+                  <option value="gemini-2.5-pro">Gemini 2.5 Pro — 최고 성능</option>
+                  <option value="gemini-2.5-flash">Gemini 2.5 Flash — 균형</option>
+                  <option value="gemini-2.0-flash">Gemini 2.0 Flash — 빠름·저렴</option>
+                  <option value="gemini-1.5-pro">Gemini 1.5 Pro — 안정</option>
+                </optgroup>
+              </select>
+              <button class="btn btn-primary btn-sm" onclick="saveDefaultModel()">저장</button>
+            </div>
+            <small id="currentModelStatus" style="color:#888;margin-top:6px;display:block;"></small>
+          </div>
+
+          <div id="apiKeySaveMsg" style="margin-top: 8px; font-size: 13px; display: none;"></div>
+        </div>
+
+        <!-- AI 사용량 대시보드 -->
+        <div class="table-container" style="padding: 24px; margin-bottom: 20px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+            <h3 style="margin:0;">📈 AI 사용량 (당월)</h3>
+            <button class="btn btn-secondary btn-sm" onclick="loadAiUsage()">🔄 새로고침</button>
+          </div>
+          <div id="usageLoading" style="color:#888;font-size:13px;display:none;">불러오는 중...</div>
+          <div id="usageError" style="color:#e53935;font-size:13px;display:none;padding:10px;background:#fff5f5;border-radius:8px;"></div>
+
+          <!-- 요약 카드 -->
+          <div id="usageSummary" style="display:none;">
+            <small id="anthropicNote" style="display:block;margin-bottom:12px;font-size:12px;"></small>
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:20px;">
+              <div style="background:#f0fdf4;border-radius:10px;padding:14px;text-align:center;">
+                <div style="font-size:11px;color:#666;margin-bottom:4px;">당월 입력 토큰</div>
+                <div style="font-size:20px;font-weight:700;color:#16a34a;" id="totalInputTokens">-</div>
+              </div>
+              <div style="background:#eff6ff;border-radius:10px;padding:14px;text-align:center;">
+                <div style="font-size:11px;color:#666;margin-bottom:4px;">당월 출력 토큰</div>
+                <div style="font-size:20px;font-weight:700;color:#2563eb;" id="totalOutputTokens">-</div>
+              </div>
+              <div style="background:#fefce8;border-radius:10px;padding:14px;text-align:center;">
+                <div style="font-size:11px;color:#666;margin-bottom:4px;">당월 추정 비용</div>
+                <div style="font-size:20px;font-weight:700;color:#ca8a04;" id="totalCost">-</div>
+              </div>
+              <div style="background:#fdf4ff;border-radius:10px;padding:14px;text-align:center;">
+                <div style="font-size:11px;color:#666;margin-bottom:4px;">총 요청 수</div>
+                <div style="font-size:20px;font-weight:700;color:#9333ea;" id="totalRequests">-</div>
+              </div>
+            </div>
+
+            <!-- 앱별 사용량 테이블 -->
+            <div style="font-weight:600;font-size:13px;margin-bottom:8px;color:#555;">앱별 사용량</div>
+            <div style="overflow-x:auto;margin-bottom:20px;">
+              <table style="width:100%;border-collapse:collapse;font-size:13px;">
+                <thead>
+                  <tr style="background:#f0f7ff;">
+                    <th style="padding:8px 12px;text-align:left;border-bottom:1px solid #e0e0e0;">앱</th>
+                    <th style="padding:8px 12px;text-align:right;border-bottom:1px solid #e0e0e0;">입력 토큰</th>
+                    <th style="padding:8px 12px;text-align:right;border-bottom:1px solid #e0e0e0;">출력 토큰</th>
+                    <th style="padding:8px 12px;text-align:right;border-bottom:1px solid #e0e0e0;">요청 수</th>
+                  </tr>
+                </thead>
+                <tbody id="usageAppBody"></tbody>
+              </table>
+            </div>
+
+            <!-- 일별 사용량 테이블 -->
+            <div style="font-weight:600;font-size:13px;margin-bottom:8px;color:#555;">일별 사용량</div>
+            <div style="overflow-x:auto;">
+              <table style="width:100%;border-collapse:collapse;font-size:13px;">
+                <thead>
+                  <tr style="background:#f8f9fa;">
+                    <th style="padding:8px 12px;text-align:left;border-bottom:1px solid #e0e0e0;">날짜</th>
+                    <th style="padding:8px 12px;text-align:right;border-bottom:1px solid #e0e0e0;">입력 토큰</th>
+                    <th style="padding:8px 12px;text-align:right;border-bottom:1px solid #e0e0e0;">출력 토큰</th>
+                    <th style="padding:8px 12px;text-align:right;border-bottom:1px solid #e0e0e0;">요청 수</th>
+                  </tr>
+                </thead>
+                <tbody id="usageDailyBody"></tbody>
+              </table>
+            </div>
+          </div>
+          <div id="usageEmpty" style="color:#aaa;font-size:13px;padding:20px 0;display:none;">아직 AI 사용 내역이 없습니다. /ai/generate 를 통해 생성하면 자동으로 기록됩니다.</div>
+        </div>
+        
+        <!-- 비밀번호 변경 섹션 -->
+        <div class="table-container" style="padding: 24px;">
+          <h3 style="margin-bottom: 20px;">🔑 비밀번호 변경</h3>
+          <form id="passwordForm">
+            <div class="form-group"><label>현재 비밀번호</label><input type="password" id="currentPassword" required></div>
+            <div class="form-group"><label>새 비밀번호</label><input type="password" id="newPassword" required minlength="6"></div>
+            <div class="form-group"><label>새 비밀번호 확인</label><input type="password" id="confirmPassword" required></div>
+            <button type="submit" class="btn btn-primary">비밀번호 변경</button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 앱 수정 모달 -->
+  <div class="modal-overlay" id="appEditModal">
+    <div class="modal">
+      <div class="modal-header"><h3>앱 수정</h3><button class="modal-close" onclick="closeAppEditModal()">&times;</button></div>
+      <div class="modal-body">
+        <form id="appEditForm"><input type="hidden" id="editAppUrl">
+          <div class="app-detail">
+            <div class="form-group"><label>앱 이름</label><input type="text" id="editAppName" required></div>
+            <div class="form-group"><label>URL 경로</label><input type="text" id="editAppUrlDisplay" disabled></div>
+            <div class="form-group"><label>카테고리</label><select id="editCategory"><option value="">선택 안 함</option></select></div>
+            <div class="form-group"><label>설명</label><input type="text" id="editDescription"></div>
+            <div class="form-group full-width"><label>프론트엔드 업데이트 (선택)</label><div class="file-upload" onclick="document.getElementById('editFrontend').click()"><div>📁 새 파일로 교체하려면 클릭</div><div class="file-name" id="editFrontendName"></div><input type="file" id="editFrontend" accept=".zip"></div></div>
+            <div class="form-group full-width"><label>백엔드 업데이트 (선택)</label><div class="file-upload" onclick="document.getElementById('editBackend').click()"><div>📁 새 파일로 교체하려면 클릭</div><div class="file-name" id="editBackendName"></div><input type="file" id="editBackend" accept=".zip"></div></div>
+            <!-- ★ AI 설정 (이 앱 전용) -->
+            <div class="form-group full-width" style="border-top:1px solid #e5e7eb;padding-top:14px;margin-top:4px;">
+              <label style="font-weight:700;color:#4f46e5;">🤖 AI 설정 (이 앱 전용)</label>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px;">
+                <div>
+                  <label style="font-size:12px;color:#666;display:block;margin-bottom:4px;">AI 모델</label>
+                  <select id="editAiModel" style="width:100%;padding:8px 10px;border:1.5px solid #d0d0d0;border-radius:8px;font-size:12px;background:#fff;">
+                    <option value="">AI 사용 안 함 (비활성화)</option>
+                    <optgroup label="🟣 Anthropic Claude">
+                      <option value="claude-sonnet-4-6">Sonnet 4.6 — 일반 작업 권장</option>
+                      <option value="claude-haiku-4-5-20251001">Haiku 4.5 — 빠른·저렴</option>
+                      <option value="claude-opus-4-6">Opus 4.6 — 가장 복잡한 작업</option>
+                    </optgroup>
+                    <optgroup label="🟢 OpenAI GPT">
+                      <option value="gpt-4o">GPT-4o — 균형 (OpenAI 기본)</option>
+                      <option value="gpt-4o-mini">GPT-4o mini — 빠른·저렴</option>
+                      <option value="o3">o3 — 고급 추론</option>
+                      <option value="o4-mini">o4-mini — 추론·저렴</option>
+                    </optgroup>
+                    <optgroup label="🔵 Google Gemini">
+                      <option value="gemini-2.5-pro">Gemini 2.5 Pro — 최고 성능</option>
+                      <option value="gemini-2.5-flash">Gemini 2.5 Flash — 균형</option>
+                      <option value="gemini-2.0-flash">Gemini 2.0 Flash — 빠른·저렴</option>
+                      <option value="gemini-1.5-pro">Gemini 1.5 Pro — 안정</option>
+                    </optgroup>
+                  </select>
+                </div>
+                <div>
+                  <label style="font-size:12px;color:#666;display:block;margin-bottom:4px;">AI 에이전트 모드</label>
+                  <select id="editAiAgent" style="width:100%;padding:8px 10px;border:1.5px solid #d0d0d0;border-radius:8px;font-size:12px;background:#fff;">
+                    <option value="">기본 (일반 응답)</option>
+                    <option value="fast">빠른 응답 — 창의적·다양한 결과</option>
+                    <option value="precise">정밀 응답 — JSON 등 정확도 중요</option>
+                    <option value="extended">Extended Thinking — 복잡한 추론</option>
+                  </select>
+                </div>
+              </div>
+              <p style="font-size:10px;color:#9ca3af;margin-top:6px;">· 미설정(AI 사용 안 함) 앱에서 AI 호출 시 오류 반환 · 모델 선택 시 해당 프로바이더 API 키 필요</p>
+            </div>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer"><button class="btn btn-secondary" onclick="closeAppEditModal()">취소</button><button class="btn btn-primary" onclick="saveAppEdit()">저장</button></div>
+    </div>
+  </div>
+
+  <!-- 카테고리/폴더/이미지 모달들 -->
+  <div class="modal-overlay" id="categoryModal">
+    <div class="modal" style="max-width: 400px;">
+      <div class="modal-header"><h3>새 카테고리</h3><button class="modal-close" onclick="closeCategoryModal()">&times;</button></div>
+      <div class="modal-body"><div class="form-group"><label>카테고리 이름</label><input type="text" id="categoryName" placeholder="예: 교육, 게임, 유틸리티"></div></div>
+      <div class="modal-footer"><button class="btn btn-secondary" onclick="closeCategoryModal()">취소</button><button class="btn btn-primary" onclick="addCategory()">추가</button></div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="folderModal">
+    <div class="modal" style="max-width: 400px;">
+      <div class="modal-header"><h3>새 폴더 만들기</h3><button class="modal-close" onclick="closeFolderModal()">&times;</button></div>
+      <div class="modal-body"><div class="form-group"><label>폴더 이름</label><input type="text" id="newFolderName" placeholder="예: characters"><small style="color:#999; display:block; margin-top:4px;">영문, 숫자, 한글, 하이픈(-) 사용 가능</small></div></div>
+      <div class="modal-footer"><button class="btn btn-secondary" onclick="closeFolderModal()">취소</button><button class="btn btn-primary" onclick="createFolder()">만들기</button></div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="appDownloadModal">
+    <div class="modal" style="max-width: 400px;">
+      <div class="modal-header"><h3>📦 ZIP 다운로드</h3><button class="modal-close" onclick="closeDownloadModal()">&times;</button></div>
+      <div class="modal-body">
+        <p style="margin-bottom: 16px; color: #666;">앱: <strong id="downloadAppName"></strong></p>
+        <input type="hidden" id="downloadAppUrl">
+        <div style="display: flex; flex-direction: column; gap: 12px;">
+          <button class="btn btn-primary" id="downloadFrontendBtn" onclick="downloadZip('frontend')" style="display: none;">📁 프론트엔드 다운로드</button>
+          <button class="btn btn-primary" id="downloadBackendBtn" onclick="downloadZip('backend')" style="display: none;">📁 백엔드 다운로드</button>
+          <p id="noZipMessage" style="color: #999; text-align: center; display: none;">다운로드 가능한 ZIP 파일이 없습니다</p>
+        </div>
+      </div>
+      <div class="modal-footer"><button class="btn btn-secondary" onclick="closeDownloadModal()">닫기</button></div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="imageUploadModal">
+    <div class="modal" style="max-width: 500px;">
+      <div class="modal-header"><h3>이미지 업로드</h3><button class="modal-close" onclick="closeImageUploadModal()">&times;</button></div>
+      <div class="modal-body">
+        <div class="form-group"><label>업로드 위치: <strong id="uploadLocationDisplay">/images</strong></label></div>
+        <div class="form-group"><div class="file-upload" onclick="document.getElementById('imageFiles').click()"><div>📁 이미지 파일 선택 (여러 개 가능)</div><div class="file-name" id="imageFileNames"></div><input type="file" id="imageFiles" accept="image/*" multiple></div></div>
+      </div>
+      <div class="modal-footer"><button class="btn btn-secondary" onclick="closeImageUploadModal()">취소</button><button class="btn btn-primary" onclick="uploadImages()">업로드</button></div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="downloadUploadModal">
+    <div class="modal" style="max-width: 500px;">
+      <div class="modal-header"><h3>다운로드 파일 업로드</h3><button class="modal-close" onclick="closeDownloadUploadModal()">&times;</button></div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>파일 선택</label>
+          <div class="file-upload" onclick="document.getElementById('downloadFile').click()">
+            <div>📁 파일 선택 (exe, zip 등)</div>
+            <div class="file-name" id="downloadFileName"></div>
+            <input type="file" id="downloadFile">
+          </div>
+          <small style="color:#999; display:block; margin-top:8px;">동일한 파일명이 있으면 덮어씁니다</small>
+        </div>
+      </div>
+      <div class="modal-footer"><button class="btn btn-secondary" onclick="closeDownloadUploadModal()">취소</button><button class="btn btn-primary" onclick="uploadDownloadFile()">업로드</button></div>
+    </div>
+  </div>
+
+  <script>
+    // ── AI 모델 배지 헬퍼 ──────────────────────────────────
+    function aiModelBadge(model) {
+      if (!model) return '<span style="font-size:10px;color:#9ca3af;">미설정</span>';
+      if (model.startsWith('gemini-')) {
+        const label = model.includes('2.5-pro') ? 'Gemini 2.5 Pro'
+                    : model.includes('2.5-flash') ? 'Gemini 2.5 Flash'
+                    : model.includes('2.0') ? 'Gemini 2.0 Flash'
+                    : 'Gemini 1.5 Pro';
+        return '<span style="font-size:10px;padding:2px 7px;border-radius:8px;background:#e3f2fd;color:#1565c0;font-weight:600;">' + label + '</span>';
+      }
+      if (model.startsWith('gpt-') || model === 'o3' || model === 'o4-mini') {
+        const label = model === 'gpt-4o' ? 'GPT-4o'
+                    : model === 'gpt-4o-mini' ? 'GPT-4o mini'
+                    : model === 'o3' ? 'o3' : 'o4-mini';
+        return '<span style="font-size:10px;padding:2px 7px;border-radius:8px;background:#e8f5e9;color:#2e7d32;font-weight:600;">' + label + '</span>';
+      }
+      const label = model.includes('haiku') ? 'Haiku'
+                  : model.includes('opus')  ? 'Opus'
+                  : 'Sonnet';
+      return '<span style="font-size:10px;padding:2px 7px;border-radius:8px;background:#eef2ff;color:#4f46e5;font-weight:600;">' + label + '</span>';
+    }
+    let token = localStorage.getItem('admin_token'), currentImageFolder = '', categories = [], apps = [];
+    let imageFolderCats = {};   // { folderName: categoryId }
+    let downloadFileCats = {};  // { filename: categoryId }
+    let imageCatFilter = '';    // 현재 이미지 카테고리 필터
+
+    async function api(method, endpoint, data = null) {
+      const options = { method, headers: { 'x-auth-token': token } };
+      if (data && !(data instanceof FormData)) { options.headers['Content-Type'] = 'application/json'; options.body = JSON.stringify(data); }
+      else if (data) options.body = data;
+      return (await fetch(`/api/admin${endpoint}`, options)).json();
+    }
+
+    async function init() {
+      if (token) { const check = await api('GET', '/auth/check'); if (check.isLoggedIn) { showMain(check.username); return; } }
+      showLogin();
+    }
+
+    function showLogin() { document.getElementById('loginContainer').style.display = 'flex'; document.getElementById('mainContainer').style.display = 'none'; }
+    function showMain(username) { document.getElementById('loginContainer').style.display = 'none'; document.getElementById('mainContainer').style.display = 'block'; document.getElementById('userInfo').textContent = `👤 ${username}`; loadCategories(); loadApps(); loadImages(''); loadBackups(); loadDownloads(); loadSettings(); }
+
+    document.getElementById('loginForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const result = await api('POST', '/login', { username: document.getElementById('username').value, password: document.getElementById('password').value });
+      if (result.success) { token = result.token; localStorage.setItem('admin_token', token); showMain(result.username); }
+      else alert(result.error || '로그인 실패');
+    });
+
+    async function logout() { await api('POST', '/logout'); token = null; localStorage.removeItem('admin_token'); showLogin(); }
+
+    document.querySelectorAll('.tab').forEach(tab => tab.addEventListener('click', () => {
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+      tab.classList.add('active'); document.getElementById(tab.dataset.tab + 'Tab').classList.add('active');
+    }));
+
+    function openDeployTab() { document.querySelectorAll('.tab').forEach(t => t.classList.remove('active')); document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active')); document.querySelector('[data-tab="deploy"]').classList.add('active'); document.getElementById('deployTab').classList.add('active'); }
+
+    async function loadCategories() {
+      categories = await api('GET', '/categories') || [];
+      if (!Array.isArray(categories)) categories = [];
+      const opts = '<option value="">선택 안 함</option>' + categories.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+      document.getElementById('categoryFilter').innerHTML = '<option value="">전체 카테고리</option>' + categories.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+      document.getElementById('deployCategory').innerHTML = opts;
+      document.getElementById('editCategory').innerHTML = opts;
+      renderCategoryList();
+      // ★ 이미지 카테고리 필터 pill 갱신
+      const imgFilter = document.getElementById('imageCatFilter');
+      if (imgFilter) {
+        imgFilter.innerHTML = '<button class="cat-pill active" data-cat="" onclick="setImageCatFilter(\'\')">전체</button>'
+          + categories.map(c => `<button class="cat-pill" data-cat="${c.id}" onclick="setImageCatFilter('${c.id}')">${c.name}</button>`).join('');
+      }
+      // ★ 다운로드 카테고리 필터 옵션 갱신
+      const dlFilter = document.getElementById('dlCatFilter');
+      if (dlFilter) {
+        dlFilter.innerHTML = '<option value="">전체 카테고리</option>'
+          + categories.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+      }
+    }
+
+    function renderCategoryList() {
+      const container = document.getElementById('categoryList'), empty = document.getElementById('categoryEmptyState');
+      if (!categories.length) { container.style.display = 'none'; empty.style.display = 'block'; return; }
+      container.style.display = 'block'; empty.style.display = 'none';
+      container.innerHTML = categories.map(c => `<div class="category-item"><div><span class="category-name">${c.name}</span> <span class="category-count">(${apps.filter(a => a.categoryId === c.id).length}개 앱)</span></div><button class="btn btn-danger btn-sm" onclick="deleteCategory('${c.id}')">삭제</button></div>`).join('');
+    }
+
+    function openCategoryModal() { document.getElementById('categoryModal').classList.add('active'); document.getElementById('categoryName').value = ''; }
+    function closeCategoryModal() { document.getElementById('categoryModal').classList.remove('active'); }
+    async function addCategory() { const name = document.getElementById('categoryName').value.trim(); if (!name) return alert('카테고리 이름을 입력하세요'); const r = await api('POST', '/categories', { name }); if (r.success) { closeCategoryModal(); loadCategories(); } else alert(r.error); }
+    async function deleteCategory(id) { if (!confirm('삭제하시겠습니까?')) return; const r = await api('DELETE', `/categories/${id}`); if (r.success) { loadCategories(); loadApps(); } }
+
+    async function loadApps() {
+      apps = await api('GET', '/apps') || [];
+      if (!Array.isArray(apps)) apps = [];
+      const filter = document.getElementById('categoryFilter').value;
+      const filtered = filter ? apps.filter(a => a.categoryId === filter) : apps;
+      const tbody = document.getElementById('appsTableBody'), empty = document.getElementById('appsEmptyState'), table = document.querySelector('#appsTab .table-container');
+      if (!filtered.length) { table.style.display = 'none'; empty.style.display = 'block'; return; }
+      table.style.display = 'block'; empty.style.display = 'none';
+      tbody.innerHTML = filtered.map(a => {
+        const cat = categories.find(c => c.id === a.categoryId);
+        return `<tr><td><strong>${a.name}</strong></td><td><a href="/apps/${a.url}" target="_blank" class="app-link">/apps/${a.url}</a></td><td>${cat ? `<span class="badge badge-secondary">${cat.name}</span>` : '-'}</td><td><span class="badge badge-${a.active ? 'success' : 'danger'}">${a.active ? '활성' : '비활성'}</span></td><td>${a.hasFrontend ? '<span class="badge badge-info">프론트</span> ' : ''}${a.hasBackend ? '<span class="badge badge-info">백엔드</span>' : ''}</td><td>${aiModelBadge(a.ai_model)}</td><td>${new Date(a.deployedAt).toLocaleDateString('ko-KR')}</td><td><div class="action-btns"><button class="btn btn-secondary btn-sm" onclick="openAppEditModal('${a.url}')">수정</button><button class="btn btn-info btn-sm" onclick="openDownloadModal('${a.url}')">다운로드</button><button class="btn btn-warning btn-sm" onclick="backupApp('${a.url}')">백업</button><button class="btn btn-${a.active ? 'secondary' : 'success'} btn-sm" onclick="toggleApp('${a.url}')">${a.active ? '비활성화' : '활성화'}</button><button class="btn btn-danger btn-sm" onclick="deleteApp('${a.url}')">삭제</button></div></td></tr>`;
+      }).join('');
+      // 백업 필터도 업데이트
+      document.getElementById('backupAppFilter').innerHTML = '<option value="">전체 앱</option>' + apps.map(a => `<option value="${a.url}">${a.name}</option>`).join('');
+      renderCategoryList();
+    }
+
+    function openAppEditModal(url) {
+      // ★ 열려 있을 수 있는 다른 모달 닫기
+      document.getElementById('downloadUploadModal').classList.remove('active');
+      const a = apps.find(x => x.url === url); if (!a) return;
+      document.getElementById('editAppUrl').value = a.url;
+      document.getElementById('editAppName').value = a.name;
+      document.getElementById('editAppUrlDisplay').value = a.url;
+      document.getElementById('editCategory').value = a.categoryId || '';
+      document.getElementById('editDescription').value = a.description || '';
+      ['editFrontendName', 'editBackendName'].forEach(id => document.getElementById(id).textContent = '');
+      ['editFrontend', 'editBackend'].forEach(id => document.getElementById(id).value = '');
+      // ★ AI 설정 로드
+      document.getElementById('editAiModel').value = a.ai_model || '';
+      document.getElementById('editAiAgent').value = a.ai_agent || '';
+      // 최신 값을 API에서도 동기화
+      api('GET', `/apps/${url}/ai-settings`).then(r => {
+        if (r.success) {
+          document.getElementById('editAiModel').value = r.ai_model || '';
+          document.getElementById('editAiAgent').value = r.ai_agent || '';
+        }
+      }).catch(() => {});
+      document.getElementById('appEditModal').classList.add('active');
+    }
+    function closeAppEditModal() { document.getElementById('appEditModal').classList.remove('active'); }
+
+    async function saveAppEdit() {
+      const url = document.getElementById('editAppUrl').value;
+      const name = document.getElementById('editAppName').value;
+      const cat  = document.getElementById('editCategory').value;
+      const desc = document.getElementById('editDescription').value;
+      const fe   = document.getElementById('editFrontend').files[0];
+      const be   = document.getElementById('editBackend').files[0];
+
+      try {
+        // ★ AI 설정 저장 (실패해도 나머지 진행)
+        try {
+          const aiModel = document.getElementById('editAiModel').value;
+          const aiAgent = document.getElementById('editAiAgent').value;
+          await api('PUT', `/apps/${url}/ai-settings`, { ai_model: aiModel, ai_agent: aiAgent });
+        } catch(aiErr) {
+          console.warn('AI 설정 저장 실패 (계속 진행):', aiErr.message);
+        }
+
+        // 앱 기본 정보 저장
+        let r = await api('PATCH', `/apps/${url}`, { name, categoryId: cat || null, description: desc });
+        if (!r.success) return alert('저장 실패: ' + (r.error || '알 수 없는 오류'));
+
+        // 파일이 있으면 배포
+        if (fe || be) {
+          const fd = new FormData();
+          fd.append('appName', name);
+          fd.append('appUrl', url);
+          fd.append('description', desc);
+          if (cat) fd.append('categoryId', cat);
+          if (fe)  fd.append('frontend', fe);
+          if (be)  fd.append('backend',  be);
+
+          const res = await fetch('/api/admin/deploy', {
+            method: 'POST',
+            headers: { 'x-auth-token': token },
+            body: fd
+          });
+          const text = await res.text();
+          let dr;
+          try { dr = JSON.parse(text); }
+          catch(_) { return alert('배포 실패: 서버 응답이 올바르지 않습니다.\n' + text.slice(0, 200)); }
+          if (!dr.success) return alert('배포 실패: ' + (dr.error || '알 수 없는 오류'));
+        }
+
+        closeAppEditModal();
+        loadApps();
+        alert('앱이 수정되었습니다' + (fe || be ? ' (배포 완료)' : ''));
+
+      } catch(e) {
+        alert('오류가 발생했습니다: ' + e.message);
+        console.error('[saveAppEdit]', e);
+      }
+    }
+
+    async function toggleApp(url) { const r = await api('PATCH', `/apps/${url}/toggle`); if (r.success) loadApps(); else alert(r.error); }
+    async function deleteApp(url) { if (!confirm('삭제하시겠습니까?')) return; const r = await api('DELETE', `/apps/${url}`); if (r.success) loadApps(); else alert(r.error); }
+
+    document.getElementById('deployForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const fd = new FormData();
+      fd.append('appName', document.getElementById('deployAppName').value);
+      fd.append('appUrl', document.getElementById('deployAppUrl').value.replace(/[^a-zA-Z0-9-_]/g, ''));
+      fd.append('description', document.getElementById('deployDescription').value);
+      const cat = document.getElementById('deployCategory').value; if (cat) fd.append('categoryId', cat);
+      const fe = document.getElementById('deployFrontend').files[0], be = document.getElementById('deployBackend').files[0];
+      if (!fe && !be) return alert('ZIP 파일을 선택하세요');
+      if (fe) fd.append('frontend', fe); if (be) fd.append('backend', be);
+      const r = await fetch('/api/admin/deploy', { method: 'POST', headers: { 'x-auth-token': token }, body: fd }).then(x => x.json());
+      if (r.success) { alert('배포 완료!'); document.getElementById('deployForm').reset(); ['deployFrontendName', 'deployBackendName'].forEach(id => document.getElementById(id).textContent = ''); document.querySelectorAll('.tab').forEach(t => t.classList.remove('active')); document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active')); document.querySelector('[data-tab="apps"]').classList.add('active'); document.getElementById('appsTab').classList.add('active'); loadApps(); }
+      else alert(r.error);
+    });
+
+    ['deployFrontend', 'deployBackend', 'editFrontend', 'editBackend'].forEach(id => document.getElementById(id).addEventListener('change', e => { document.getElementById(id + 'Name').textContent = e.target.files[0]?.name || ''; e.target.closest('.file-upload').classList.toggle('has-file', !!e.target.files[0]); }));
+    document.getElementById('imageFiles').addEventListener('change', e => { document.getElementById('imageFileNames').textContent = Array.from(e.target.files).map(f => f.name).join(', '); e.target.closest('.file-upload').classList.toggle('has-file', e.target.files.length > 0); });
+
+    // 이미지 관리
+    async function loadImages(folder) {
+      currentImageFolder = folder;
+      const pd = document.getElementById('currentPathDisplay');
+      if (folder) { const parts = folder.split('/'); let html = '', acc = ''; parts.forEach((p, i) => { acc += (i ? '/' : '') + p; html += ` / <span class="path-item" onclick="loadImages('${acc}')">${p}</span>`; }); pd.innerHTML = html; } else pd.innerHTML = '';
+      document.getElementById('uploadLocationDisplay').textContent = folder ? `/images/${folder}` : '/images';
+      // ★ 루트 폴더일 때만 카테고리 매핑 로드
+      if (!folder) {
+        const cr = await api('GET', '/image-folder-categories').catch(() => ({ categories: {} }));
+        imageFolderCats = cr.categories || {};
+      }
+      const r = await api('GET', `/images?folder=${encodeURIComponent(folder)}`);
+      const folders = r.folders || [];
+      document.getElementById('folderGrid').innerHTML = folders.map(f => {
+        const fullPath = folder ? `${folder}/${f}` : f;
+        const rootFolder = f; // 루트 폴더명으로 카테고리 키 사용
+        const catId = !folder ? imageFolderCats[rootFolder] : null;
+        const cat = catId ? categories.find(c => c.id === catId) : null;
+        const catBadge = cat ? `<span class="folder-cat-badge" title="카테고리 변경" onclick="event.stopPropagation();setFolderCategory('${rootFolder}')">${cat.name}</span>` : (!folder ? `<span class="folder-cat-badge" style="background:#f3f4f6;color:#9ca3af;" onclick="event.stopPropagation();setFolderCategory('${rootFolder}')">미분류</span>` : '');
+        const hidden = (!folder && imageCatFilter && catId !== imageCatFilter) ? 'cat-hidden' : '';
+        return `<div class="folder-item ${hidden}" onclick="loadImages('${fullPath}')"><div class="folder-icon">📁</div><div class="folder-name">${f}${catBadge}</div></div>`;
+      }).join('');
+      document.getElementById('imagesGrid').innerHTML = (r.files || []).map(f => { const p = folder ? `${folder}/${f.name}` : f.name; return `<div class="image-item" onclick="showImageActions('${p}')"><img src="/api/images/${p}" onerror="this.style.background='#eee'"><div class="image-name">${f.name}</div></div>`; }).join('');
+    }
+
+    // ★ 이미지 카테고리 필터 pill 클릭
+    function setImageCatFilter(catId) {
+      imageCatFilter = catId;
+      document.querySelectorAll('#imageCatFilter .cat-pill').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.cat === catId);
+      });
+      loadImages(''); // 루트로 돌아가서 필터 적용
+    }
+
+    // ★ 폴더 카테고리 지정 다이얼로그
+    async function setFolderCategory(folder) {
+      const catNames = categories.map(c => `${c.name}`).join(' / ');
+      const current = imageFolderCats[folder] || '';
+      const currentName = categories.find(c => c.id === current)?.name || '미분류';
+      const opts = ['미분류(해제)', ...categories.map(c => c.name)];
+      const idx = opts.indexOf(currentName);
+      const input = prompt(`[${folder}] 폴더 카테고리 선택\n현재: ${currentName}\n\n번호 입력:\n${opts.map((n,i) => `${i}: ${n}`).join('\n')}`, idx >= 0 ? idx : 0);
+      if (input === null) return;
+      const sel = opts[parseInt(input)];
+      if (!sel) return;
+      const newCatId = sel === '미분류(해제)' ? '' : categories.find(c => c.name === sel)?.id || '';
+      await api('PUT', '/image-folder-categories', { folder, categoryId: newCatId });
+      imageFolderCats[folder] = newCatId;
+      loadImages('');
+    }
+    function showImageActions(p) { if (confirm(`${p}\n\n확인: 경로 복사\n취소: 삭제`)) { navigator.clipboard.writeText(`/api/images/${p}`); alert('복사됨: /api/images/' + p); } else if (confirm('삭제?')) deleteImage(p); }
+    async function deleteImage(p) { const r = await api('DELETE', `/images/${p}`); if (r.success) loadImages(currentImageFolder); }
+    function openFolderModal() { document.getElementById('folderModal').classList.add('active'); document.getElementById('newFolderName').value = ''; }
+    function closeFolderModal() { document.getElementById('folderModal').classList.remove('active'); }
+    async function createFolder() { const name = document.getElementById('newFolderName').value.trim(); if (!name) return alert('폴더 이름 입력'); const r = await api('POST', '/images/folder', { folderName: name, parentFolder: currentImageFolder }); if (r.success) { closeFolderModal(); loadImages(currentImageFolder); } else alert(r.error); }
+    function openImageUploadModal() { document.getElementById('imageUploadModal').classList.add('active'); document.getElementById('imageFiles').value = ''; document.getElementById('imageFileNames').textContent = ''; }
+    function closeImageUploadModal() { document.getElementById('imageUploadModal').classList.remove('active'); }
+    async function uploadImages() { const files = document.getElementById('imageFiles').files; if (!files.length) return alert('이미지 선택'); const fd = new FormData(); fd.append('folder', currentImageFolder); for (const f of files) fd.append('images', f); const r = await fetch('/api/admin/images', { method: 'POST', headers: { 'x-auth-token': token }, body: fd }).then(x => x.json()); if (r.success) { closeImageUploadModal(); loadImages(currentImageFolder); } else alert(r.error); }
+
+    // 백업 관리
+    async function loadBackups() {
+      const filter = document.getElementById('backupAppFilter').value;
+      const backups = await api('GET', `/backups${filter ? '?appUrl=' + filter : ''}`);
+      const tbody = document.getElementById('backupsTableBody'), empty = document.getElementById('backupsEmptyState'), table = document.querySelector('#backupsTab .table-container');
+      if (!backups.length) { table.style.display = 'none'; empty.style.display = 'block'; return; }
+      table.style.display = 'block'; empty.style.display = 'none';
+      tbody.innerHTML = backups.map(b => {
+        const app = apps.find(a => a.url === b.appUrl);
+        const type = b.name.includes('auto') ? '<span class="badge badge-info backup-type">자동</span>' : '<span class="badge badge-secondary backup-type">수동</span>';
+        const size = formatSize(b.size);
+        return `<tr><td><strong>${app?.name || b.appUrl}</strong></td><td>${new Date(b.date).toLocaleString('ko-KR')}</td><td>${type}</td><td class="backup-size">${size}</td><td><div class="action-btns"><button class="btn btn-success btn-sm" onclick="restoreBackup('${b.appUrl}', '${b.name}')">복원</button><button class="btn btn-danger btn-sm" onclick="deleteBackup('${b.appUrl}', '${b.name}')">삭제</button></div></td></tr>`;
+      }).join('');
+    }
+
+    function formatSize(bytes) {
+      if (bytes < 1024) return bytes + ' B';
+      if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+      return (bytes / 1024 / 1024).toFixed(1) + ' MB';
+    }
+
+    async function backupApp(appUrl) {
+      if (!confirm(`"${appUrl}" 앱을 백업하시겠습니까?`)) return;
+      const r = await api('POST', `/backups/${appUrl}`);
+      if (r.success) { alert('백업 완료: ' + r.backupName); loadBackups(); }
+      else alert(r.error || '백업 실패');
+    }
+
+    async function backupAll() {
+      if (!confirm('모든 앱 + 설정 + 이미지를 백업하시겠습니까?')) return;
+      const r = await api('POST', '/backups-all');
+      if (r.success) { alert(r.message); loadBackups(); }
+      else alert(r.error || '백업 실패');
+    }
+
+    async function restoreBackup(appUrl, backupName) {
+      if (!confirm(`"${backupName}" 백업으로 복원하시겠습니까?\n\n⚠️ 현재 앱이 이 백업으로 교체됩니다.`)) return;
+      const r = await api('POST', `/backups/${appUrl}/restore`, { backupName });
+      if (r.success) { alert('복원 완료!'); loadApps(); loadBackups(); }
+      else alert(r.error || '복원 실패');
+    }
+
+    async function deleteBackup(appUrl, backupName) {
+      if (!confirm(`"${backupName}" 백업을 삭제하시겠습니까?`)) return;
+      const r = await api('DELETE', `/backups/${appUrl}/${backupName}`);
+      if (r.success) loadBackups();
+      else alert(r.error || '삭제 실패');
+    }
+
+    // API 키 관리
+    async function loadSettings() {
+      try {
+        const s = await api('GET', '/settings');
+        // 일반 API 키 상태
+        const statusEl = document.getElementById('currentKeyStatus');
+        if (s.anthropicApiKeyMasked) {
+          statusEl.textContent = '현재: ' + s.anthropicApiKeyMasked;
+          statusEl.style.color = '#2e7d32';
+        } else {
+          statusEl.textContent = '저장된 키 없음';
+          statusEl.style.color = '#888';
+        }
+        // Admin API 키 상태
+        const adminStatusEl = document.getElementById('currentAdminKeyStatus');
+        if (adminStatusEl) {
+          if (s.anthropicAdminApiKeyMasked) {
+            adminStatusEl.textContent = '현재: ' + s.anthropicAdminApiKeyMasked;
+            adminStatusEl.style.color = '#2e7d32';
+            loadAiUsage();
+          } else {
+            adminStatusEl.textContent = '저장된 Admin 키 없음';
+            adminStatusEl.style.color = '#888';
+            document.getElementById('usageEmpty').style.display = 'block';
+          }
+        }
+        // OpenAI 키 상태
+        const openaiEl = document.getElementById('openaiKeyStatus');
+        if (openaiEl) {
+          if (s.openaiApiKeyMasked) {
+            openaiEl.textContent = '현재: ' + s.openaiApiKeyMasked;
+            openaiEl.style.color = '#2e7d32';
+          } else {
+            openaiEl.textContent = '저장된 키 없음';
+            openaiEl.style.color = '#888';
+          }
+        }
+        // Google 키 상태
+        const googleEl = document.getElementById('googleKeyStatus');
+        if (googleEl) {
+          if (s.googleApiKeyMasked) {
+            googleEl.textContent = '현재: ' + s.googleApiKeyMasked;
+            googleEl.style.color = '#2e7d32';
+          } else {
+            googleEl.textContent = '저장된 키 없음';
+            googleEl.style.color = '#888';
+          }
+        }
+        // 기본 모델 상태
+        const modelSel = document.getElementById('defaultModel');
+        const modelStatus = document.getElementById('currentModelStatus');
+        if (modelSel && s.defaultModel) {
+          modelSel.value = s.defaultModel;
+          modelStatus.textContent = '현재 설정: ' + modelSel.options[modelSel.selectedIndex]?.text;
+          modelStatus.style.color = '#2e7d32';
+        } else if (modelStatus) {
+          modelStatus.textContent = '설정 없음 → Claude Sonnet 4.6 사용 중';
+          modelStatus.style.color = '#888';
+        }
+      } catch(e) {}
+    }
+
+    async function saveApiKey() {
+      const key = document.getElementById('anthropicApiKey').value.trim();
+      if (!key) return alert('API 키를 입력하세요');
+      if (!key.startsWith('sk-ant-')) return alert('올바른 Anthropic API 키 형식이 아닙니다\n(sk-ant-... 로 시작해야 합니다)');
+      const r = await api('POST', '/settings', { anthropicApiKey: key });
+      const msg = document.getElementById('apiKeySaveMsg');
+      if (r.success) {
+        msg.textContent = '✅ API 키 저장됨. pm2 restart 후 앱에 적용됩니다.';
+        msg.style.color = '#2e7d32'; msg.style.display = 'block';
+        document.getElementById('anthropicApiKey').value = '';
+        loadSettings();
+        setTimeout(() => { msg.style.display = 'none'; }, 5000);
+      } else {
+        msg.textContent = '❌ 저장 실패: ' + (r.error || '');
+        msg.style.color = '#e53935'; msg.style.display = 'block';
+      }
+    }
+
+    async function deleteApiKey() {
+      if (!confirm('API 키를 삭제하시겠습니까?')) return;
+      const r = await api('POST', '/settings', { anthropicApiKey: '' });
+      if (r.success) { loadSettings(); } else alert('삭제 실패: ' + (r.error || ''));
+    }
+
+    async function saveAdminApiKey() {
+      const key = document.getElementById('anthropicAdminApiKey').value.trim();
+      if (!key) return alert('Admin API 키를 입력하세요');
+      if (!key.startsWith('sk-ant-')) return alert('올바른 키 형식이 아닙니다');
+      const r = await api('POST', '/settings', { anthropicAdminApiKey: key });
+      const msg = document.getElementById('apiKeySaveMsg');
+      if (r.success) {
+        msg.textContent = '✅ Admin API 키 저장됨';
+        msg.style.color = '#2e7d32'; msg.style.display = 'block';
+        document.getElementById('anthropicAdminApiKey').value = '';
+        loadSettings();
+        setTimeout(() => { msg.style.display = 'none'; }, 4000);
+      } else {
+        msg.textContent = '❌ 저장 실패: ' + (r.error || '');
+        msg.style.color = '#e53935'; msg.style.display = 'block';
+      }
+    }
+
+    async function deleteAdminApiKey() {
+      if (!confirm('Admin API 키를 삭제하시겠습니까?')) return;
+      const r = await api('POST', '/settings', { anthropicAdminApiKey: '' });
+      if (r.success) { loadSettings(); } else alert('삭제 실패: ' + (r.error || ''));
+    }
+
+    // ── OpenAI ──────────────────────────────────
+    async function saveOpenaiKey() {
+      const key = document.getElementById('openaiApiKey').value.trim();
+      if (!key) return alert('OpenAI API 키를 입력하세요');
+      const r = await api('POST', '/settings', { openaiApiKey: key });
+      const msg = document.getElementById('apiKeySaveMsg');
+      if (r.success) {
+        msg.textContent = '✅ OpenAI API 키 저장됨';
+        msg.style.color = '#2e7d32'; msg.style.display = 'block';
+        document.getElementById('openaiApiKey').value = '';
+        loadSettings();
+        setTimeout(() => { msg.style.display = 'none'; }, 4000);
+      } else {
+        msg.textContent = '❌ 저장 실패: ' + (r.error || '');
+        msg.style.color = '#e53935'; msg.style.display = 'block';
+      }
+    }
+    async function deleteOpenaiKey() {
+      if (!confirm('OpenAI API 키를 삭제하시겠습니까?')) return;
+      const r = await api('POST', '/settings', { openaiApiKey: '' });
+      if (r.success) { loadSettings(); } else alert('삭제 실패: ' + (r.error || ''));
+    }
+
+    // ── Google ──────────────────────────────────
+    async function saveGoogleKey() {
+      const key = document.getElementById('googleApiKey').value.trim();
+      if (!key) return alert('Google API 키를 입력하세요');
+      const r = await api('POST', '/settings', { googleApiKey: key });
+      const msg = document.getElementById('apiKeySaveMsg');
+      if (r.success) {
+        msg.textContent = '✅ Google API 키 저장됨';
+        msg.style.color = '#2e7d32'; msg.style.display = 'block';
+        document.getElementById('googleApiKey').value = '';
+        loadSettings();
+        setTimeout(() => { msg.style.display = 'none'; }, 4000);
+      } else {
+        msg.textContent = '❌ 저장 실패: ' + (r.error || '');
+        msg.style.color = '#e53935'; msg.style.display = 'block';
+      }
+    }
+    async function deleteGoogleKey() {
+      if (!confirm('Google API 키를 삭제하시겠습니까?')) return;
+      const r = await api('POST', '/settings', { googleApiKey: '' });
+      if (r.success) { loadSettings(); } else alert('삭제 실패: ' + (r.error || ''));
+    }
+
+    async function saveDefaultModel() {
+      const model = document.getElementById('defaultModel').value;
+      const r = await api('POST', '/settings', { defaultModel: model });
+      const msg = document.getElementById('apiKeySaveMsg');
+      if (r.success) {
+        msg.textContent = '✅ 기본 모델 저장됨: ' + document.getElementById('defaultModel').options[document.getElementById('defaultModel').selectedIndex].text;
+        msg.style.color = '#2e7d32'; msg.style.display = 'block';
+        loadSettings();
+        setTimeout(() => { msg.style.display = 'none'; }, 4000);
+      } else {
+        msg.textContent = '❌ 저장 실패: ' + (r.error || '');
+        msg.style.color = '#e53935'; msg.style.display = 'block';
+      }
+    }
+
+    function toggleApiKeyVisibility(inputId, btnId) {
+      const input = document.getElementById(inputId);
+      const btn = document.getElementById(btnId);
+      if (!input) return;
+      if (input.type === 'password') { input.type = 'text'; btn.textContent = '🙈 숨기기'; }
+      else { input.type = 'password'; btn.textContent = '👁 보기'; }
+    }
+
+    // AI 사용량 조회
+    async function loadAiUsage() {
+      document.getElementById('usageLoading').style.display = 'block';
+      document.getElementById('usageError').style.display = 'none';
+      document.getElementById('usageSummary').style.display = 'none';
+      document.getElementById('usageEmpty').style.display = 'none';
+      try {
+        const r = await api('GET', '/ai-usage');
+        document.getElementById('usageLoading').style.display = 'none';
+        if (!r.success) {
+          document.getElementById('usageError').textContent = '오류: ' + (r.message || r.error);
+          document.getElementById('usageError').style.display = 'block';
+          return;
+        }
+
+        const local = r.local || {};
+        const byApp = local.byApp || {};
+        const byDate = local.byDate || {};
+        const byModel = local.byModel || {};
+        const fmtTok = n => n >= 1e6 ? (n/1e6).toFixed(2)+'M' : n >= 1000 ? (n/1000).toFixed(1)+'K' : String(n||0);
+        // 모델별 비용 단가 (input/output per M)
+        const modelPrice = {
+          'claude-sonnet-4-6': [3, 15],
+          'claude-haiku-4-5-20251001': [1, 5],
+          'claude-opus-4-6': [5, 25]
+        };
+        const calcCost = (model, inp, out) => {
+          const [ip, op] = modelPrice[model] || [3, 15];
+          return (inp/1e6*ip + out/1e6*op);
+        };
+        const estimateTotalCost = () => {
+          return Object.entries(byModel).reduce((sum, [m, d]) => sum + calcCost(m, d.input, d.output), 0);
+        };
+
+        // 전체 합계
+        const totalIn = Object.values(byDate).reduce((s,d) => s+d.input, 0);
+        const totalOut = Object.values(byDate).reduce((s,d) => s+d.output, 0);
+        const totalReq = Object.values(byDate).reduce((s,d) => s+d.requests, 0);
+
+        document.getElementById('totalInputTokens').textContent = fmtTok(totalIn);
+        document.getElementById('totalOutputTokens').textContent = fmtTok(totalOut);
+        document.getElementById('totalCost').textContent = '$' + estimateTotalCost().toFixed(4);
+        document.getElementById('totalRequests').textContent = totalReq.toLocaleString();
+
+        // 앱별 테이블
+        const appTbody = document.getElementById('usageAppBody');
+        const appEntries = Object.entries(byApp).sort((a,b) => b[1].requests - a[1].requests);
+        if (appEntries.length === 0) {
+          appTbody.innerHTML = '<tr><td colspan="4" style="padding:12px;color:#aaa;text-align:center;">아직 사용 내역 없음</td></tr>';
+        } else {
+          appTbody.innerHTML = appEntries.map(([app, d]) => `
+            <tr style="border-bottom:1px solid #f0f0f0;">
+              <td style="padding:8px 12px;font-weight:600;">${app}</td>
+              <td style="padding:8px 12px;text-align:right;">${fmtTok(d.input)}</td>
+              <td style="padding:8px 12px;text-align:right;">${fmtTok(d.output)}</td>
+              <td style="padding:8px 12px;text-align:right;">${d.requests.toLocaleString()}</td>
+            </tr>`).join('');
+        }
+
+        // 일별 테이블
+        const dateTbody = document.getElementById('usageDailyBody');
+        const sortedDates = Object.keys(byDate).sort().reverse();
+        if (sortedDates.length === 0) {
+          dateTbody.innerHTML = '<tr><td colspan="4" style="padding:12px;color:#aaa;text-align:center;">이번 달 사용 내역 없음</td></tr>';
+        } else {
+          dateTbody.innerHTML = sortedDates.map(date => {
+            const d = byDate[date];
+            return `<tr style="border-bottom:1px solid #f0f0f0;">
+              <td style="padding:8px 12px;">${date}</td>
+              <td style="padding:8px 12px;text-align:right;">${fmtTok(d.input)}</td>
+              <td style="padding:8px 12px;text-align:right;">${fmtTok(d.output)}</td>
+              <td style="padding:8px 12px;text-align:right;">${d.requests.toLocaleString()}</td>
+            </tr>`;
+          }).join('');
+        }
+
+        // Anthropic 공식 데이터 표시
+        const anthropicNote = document.getElementById('anthropicNote');
+        if (anthropicNote) {
+          if (r.anthropic) {
+            anthropicNote.textContent = '✅ Anthropic 공식 데이터 연동됨';
+            anthropicNote.style.color = '#2e7d32';
+          } else if (!r.hasAdminKey) {
+            anthropicNote.textContent = 'ℹ️ Admin API 키 등록 시 Anthropic 공식 사용량도 확인 가능합니다';
+            anthropicNote.style.color = '#888';
+          } else {
+            anthropicNote.textContent = '⚠️ Anthropic 공식 데이터 조회 실패 (로컬 로그만 표시)';
+            anthropicNote.style.color = '#f59e0b';
+          }
+        }
+
+        document.getElementById('usageSummary').style.display = 'block';
+      } catch(e) {
+        document.getElementById('usageLoading').style.display = 'none';
+        document.getElementById('usageError').textContent = '네트워크 오류: ' + e.message;
+        document.getElementById('usageError').style.display = 'block';
+      }
+    }
+
+    // 비밀번호 변경
+    document.getElementById('passwordForm').addEventListener('submit', async (e) => { e.preventDefault(); const cur = document.getElementById('currentPassword').value, nw = document.getElementById('newPassword').value, cf = document.getElementById('confirmPassword').value; if (nw !== cf) return alert('비밀번호 불일치'); const r = await api('POST', '/change-password', { currentPassword: cur, newPassword: nw }); if (r.success) { alert('변경됨'); document.getElementById('passwordForm').reset(); } else alert(r.error); });
+
+    // ===== 다운로드 파일 관리 =====
+    let downloadFiles = [];
+
+    async function loadDownloads() {
+      const [r, cr] = await Promise.all([
+        api('GET', '/downloads'),
+        api('GET', '/download-file-categories').catch(() => ({ categories: {} }))
+      ]);
+      if (r.success) {
+        downloadFiles = r.files;
+        downloadFileCats = cr.categories || {};
+        renderDownloads();
+      }
+    }
+
+    function renderDownloads() {
+      const tbody = document.getElementById('downloadsTableBody');
+      const empty = document.getElementById('downloadsEmptyState');
+      const filterCat = document.getElementById('dlCatFilter')?.value || '';
+
+      const filtered = filterCat
+        ? downloadFiles.filter(f => downloadFileCats[f.name] === filterCat)
+        : downloadFiles;
+
+      if (filtered.length === 0) {
+        tbody.innerHTML = '';
+        empty.style.display = 'block';
+        return;
+      }
+
+      empty.style.display = 'none';
+      tbody.innerHTML = filtered.map(f => {
+        const fullUrl = window.location.origin + f.url;
+        const catId = downloadFileCats[f.name] || '';
+        const cat = catId ? categories.find(c => c.id === catId) : null;
+        const catBadge = cat
+          ? `<span class="folder-cat-badge">${cat.name}</span>`
+          : '<span style="font-size:10px;color:#9ca3af;">미분류</span>';
+        const catSelect = `<select onchange="setDownloadFileCat('${f.name}',this.value)" style="font-size:11px;padding:2px 4px;border:1px solid #d0d0d0;border-radius:6px;margin-left:4px;">
+          <option value="">미분류</option>
+          ${categories.map(c => `<option value="${c.id}"${catId===c.id?' selected':''}>${c.name}</option>`).join('')}
+        </select>`;
+        return `<tr>
+          <td><strong>${f.name}</strong></td>
+          <td>${catBadge}${catSelect}</td>
+          <td>${f.sizeFormatted}</td>
+          <td>${new Date(f.uploadedAt).toLocaleString('ko-KR')}</td>
+          <td><input type="text" value="${fullUrl}" readonly style="width:260px;padding:4px 8px;border:1px solid #ddd;border-radius:4px;font-size:12px;" onclick="this.select()"> <button class="btn btn-sm btn-secondary" onclick="copyToClipboard('${fullUrl}')">복사</button></td>
+          <td class="action-btns">
+            <a href="${f.url}" download class="btn btn-sm btn-success">다운로드</a>
+            <button class="btn btn-sm btn-danger" onclick="deleteDownloadFile('${f.name}')">삭제</button>
+          </td>
+        </tr>`;
+      }).join('');
+    }
+
+    // ★ 다운로드 파일 카테고리 지정 (인라인 select)
+    async function setDownloadFileCat(filename, categoryId) {
+      await api('PUT', '/download-file-categories', { filename, categoryId });
+      downloadFileCats[filename] = categoryId;
+      renderDownloads();
+    }
+
+    function copyToClipboard(text) {
+      navigator.clipboard.writeText(text).then(() => alert('URL이 복사되었습니다!'));
+    }
+
+    function openDownloadUploadModal() {
+      // ★ 열려 있을 수 있는 다른 모달 닫기
+      document.getElementById('appEditModal').classList.remove('active');
+      document.getElementById('downloadFile').value = '';
+      document.getElementById('downloadFileName').textContent = '';
+      document.getElementById('downloadUploadModal').classList.add('active');
+    }
+
+    function closeDownloadUploadModal() {
+      document.getElementById('downloadUploadModal').classList.remove('active');
+    }
+
+    document.getElementById('downloadFile').addEventListener('change', function() {
+      document.getElementById('downloadFileName').textContent = this.files[0]?.name || '';
+    });
+
+    async function uploadDownloadFile() {
+      const file = document.getElementById('downloadFile').files[0];
+      if (!file) return alert('파일을 선택하세요');
+      
+      const fd = new FormData();
+      fd.append('file', file);
+      
+      const r = await fetch('/api/admin/downloads', {
+        method: 'POST',
+        headers: { 'x-auth-token': token },
+        body: fd
+      }).then(x => x.json());
+      
+      if (r.success) {
+        closeDownloadUploadModal();
+        loadDownloads();
+        alert('업로드 완료!\n\nURL: ' + window.location.origin + r.file.url);
+      } else {
+        alert(r.error || '업로드 실패');
+      }
+    }
+
+    async function deleteDownloadFile(filename) {
+      if (!confirm(`"${filename}" 파일을 삭제하시겠습니까?`)) return;
+      const r = await api('DELETE', `/downloads/${encodeURIComponent(filename)}`);
+      if (r.success) loadDownloads();
+      else alert(r.error || '삭제 실패');
+    }
+
+    // ===== ZIP 다운로드 기능 =====
+    async function openDownloadModal(appUrl) {
+      const app = apps.find(a => a.url === appUrl);
+      if (!app) return;
+      
+      document.getElementById('downloadAppName').textContent = app.name;
+      document.getElementById('downloadAppUrl').value = appUrl;
+      
+      // ZIP 존재 여부 확인
+      const r = await api('GET', `/zips/${appUrl}`);
+      
+      const feBtn = document.getElementById('downloadFrontendBtn');
+      const beBtn = document.getElementById('downloadBackendBtn');
+      const noMsg = document.getElementById('noZipMessage');
+      
+      feBtn.style.display = r.hasFrontend ? 'block' : 'none';
+      beBtn.style.display = r.hasBackend ? 'block' : 'none';
+      noMsg.style.display = (!r.hasFrontend && !r.hasBackend) ? 'block' : 'none';
+      
+      document.getElementById('appDownloadModal').classList.add('active');
+    }
+
+    function closeDownloadModal() {
+      document.getElementById('appDownloadModal').classList.remove('active');
+    }
+
+    function downloadZip(type) {
+      const appUrl = document.getElementById('downloadAppUrl').value;
+      window.location.href = `/api/admin/download/${appUrl}/${type}?token=${token}`;
+    }
+
+    // ===== IP 관리 기능 =====
+    let allowedIps = [];
+
+    async function loadIpConfig() {
+      try {
+        const r = await api('GET', '/ip-config');
+        allowedIps = r.allowedIps || [];
+        renderIpList();
+        
+        // 내 IP 표시
+        const myIp = await api('GET', '/my-ip');
+        document.getElementById('myIpDisplay').textContent = myIp.ip || '-';
+      } catch (e) {
+        console.error('IP 설정 로드 실패:', e);
+      }
+    }
+
+    function renderIpList() {
+      const container = document.getElementById('ipList');
+      const empty = document.getElementById('ipEmptyState');
+      
+      if (!allowedIps.length) {
+        container.innerHTML = '';
+        empty.style.display = 'block';
+        return;
+      }
+      
+      empty.style.display = 'none';
+      container.innerHTML = allowedIps.map(ip => `
+        <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; background: #f8f9fa; border-radius: 6px; margin-bottom: 8px;">
+          <span style="font-family: monospace;">${ip}</span>
+          <button class="btn btn-danger btn-sm" onclick="removeIp('${ip}')">삭제</button>
+        </div>
+      `).join('');
+    }
+
+    async function addIp() {
+      const input = document.getElementById('newIpInput');
+      const inputValue = input.value.trim();
+      
+      if (!inputValue) {
+        alert('IP 주소를 입력하세요');
+        return;
+      }
+      
+      // 쉼표로 구분된 복수 IP 처리
+      const ips = inputValue.split(',').map(ip => ip.trim()).filter(ip => ip);
+      
+      let r;
+      if (ips.length === 1) {
+        r = await api('POST', '/ip-config', { ip: ips[0] });
+      } else {
+        r = await api('POST', '/ip-config', { ips: ips });
+      }
+      
+      if (r.success) {
+        allowedIps = r.allowedIps;
+        renderIpList();
+        input.value = '';
+        if (r.addedCount > 1) {
+          alert(`${r.addedCount}개의 IP가 추가되었습니다`);
+        }
+      } else {
+        alert(r.error || 'IP 추가 실패');
+      }
+    }
+
+    async function addMyIp() {
+      const myIpText = document.getElementById('myIpDisplay').textContent;
+      if (myIpText === '-') {
+        alert('내 IP를 확인할 수 없습니다');
+        return;
+      }
+      
+      const r = await api('POST', '/ip-config', { ip: myIpText });
+      
+      if (r.success) {
+        allowedIps = r.allowedIps;
+        renderIpList();
+        alert('내 IP가 추가되었습니다: ' + myIpText);
+      } else {
+        alert(r.error || 'IP 추가 실패');
+      }
+    }
+
+    async function removeIp(ip) {
+      if (!confirm(`"${ip}"를 삭제하시겠습니까?\n\n⚠️ 현재 접속 중인 IP를 삭제하면 다시 로그인할 수 없습니다.`)) return;
+      
+      const r = await api('DELETE', `/ip-config/${ip}`);
+      
+      if (r.success) {
+        allowedIps = r.allowedIps;
+        renderIpList();
+      } else {
+        alert(r.error || 'IP 삭제 실패');
+      }
+    }
+
+    // showMain에서 loadIpConfig 호출 추가
+    const originalShowMain = showMain;
+    showMain = function(username) {
+      originalShowMain(username);
+      loadIpConfig();
+    };
+
+    init();
+  </script>
+</body>
+</html>
