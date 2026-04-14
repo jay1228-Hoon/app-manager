@@ -893,6 +893,286 @@
       renderDownloads();
     }
 
+    async function backupAll() {
+      if (!confirm('모든 앱 + 설정 + 이미지를 백업하시겠습니까?')) return;
+      const r = await api('POST', '/backups-all');
+      if (r.success) { alert(r.message); loadBackups(); }
+      else alert(r.error || '백업 실패');
+    }
+
+    async function backupApp(appUrl) {
+      if (!confirm(`"${appUrl}" 앱을 백업하시겠습니까?`)) return;
+      const r = await api('POST', `/backups/${appUrl}`);
+      if (r.success) { alert('백업 완료: ' + r.backupName); loadBackups(); }
+      else alert(r.error || '백업 실패');
+    }
+
+    function closeFolderModal() { document.getElementById('folderModal').classList.remove('active'); }
+    async function createFolder() { const name = document.getElementById('newFolderName').value.trim(); if (!name) return alert('폴더 이름 입력'); const r = await api('POST', '/images/folder', { folderName: name, parentFolder: currentImageFolder }); if (r.success) { closeFolderModal(); loadImages(currentImageFolder); } else alert(r.error); }
+
+    function closeImageUploadModal() { document.getElementById('imageUploadModal').classList.remove('active'); }
+    async function uploadImages() { const files = document.getElementById('imageFiles').files; if (!files.length) return alert('이미지 선택'); const fd = new FormData(); fd.append('folder', currentImageFolder); for (const f of files) fd.append('images', f); const r = await fetch('/api/admin/images', { method: 'POST', headers: { 'x-auth-token': token }, body: fd }).then(x => x.json()); if (r.success) { closeImageUploadModal(); loadImages(currentImageFolder); } else alert(r.error); }
+
+    async function createFolder() { const name = document.getElementById('newFolderName').value.trim(); if (!name) return alert('폴더 이름 입력'); const r = await api('POST', '/images/folder', { folderName: name, parentFolder: currentImageFolder }); if (r.success) { closeFolderModal(); loadImages(currentImageFolder); } else alert(r.error); }
+    function openImageUploadModal() { document.getElementById('imageUploadModal').classList.add('active'); document.getElementById('imageFiles').value = ''; document.getElementById('imageFileNames').textContent = ''; }
+
+    async function deleteAdminApiKey() {
+      if (!confirm('Admin API 키를 삭제하시겠습니까?')) return;
+      const r = await api('POST', '/settings', { anthropicAdminApiKey: '' });
+      if (r.success) { loadSettings(); } else alert('삭제 실패: ' + (r.error || ''));
+    }
+
+    async function deleteApiKey() {
+      if (!confirm('API 키를 삭제하시겠습니까?')) return;
+      const r = await api('POST', '/settings', { anthropicApiKey: '' });
+      if (r.success) { loadSettings(); } else alert('삭제 실패: ' + (r.error || ''));
+    }
+
+    async function deleteBackup(appUrl, backupName) {
+      if (!confirm(`"${backupName}" 백업을 삭제하시겠습니까?`)) return;
+      const r = await api('DELETE', `/backups/${appUrl}/${backupName}`);
+      if (r.success) loadBackups();
+      else alert(r.error || '삭제 실패');
+    }
+
+    async function deleteImage(p) { const r = await api('DELETE', `/images/${p}`); if (r.success) loadImages(currentImageFolder); }
+    function openFolderModal() { document.getElementById('folderModal').classList.add('active'); document.getElementById('newFolderName').value = ''; }
+
+    function formatSize(bytes) {
+      if (bytes < 1024) return bytes + ' B';
+      if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+      return (bytes / 1024 / 1024).toFixed(1) + ' MB';
+    }
+
+    async function loadAiUsage() {
+      document.getElementById('usageLoading').style.display = 'block';
+      document.getElementById('usageError').style.display = 'none';
+      document.getElementById('usageSummary').style.display = 'none';
+      document.getElementById('usageEmpty').style.display = 'none';
+      try {
+        const r = await api('GET', '/ai-usage');
+        document.getElementById('usageLoading').style.display = 'none';
+        if (!r.success) {
+          document.getElementById('usageError').textContent = '오류: ' + (r.message || r.error);
+          document.getElementById('usageError').style.display = 'block';
+          return;
+        }
+
+        const local = r.local || {};
+        const byApp = local.byApp || {};
+        const byDate = local.byDate || {};
+        const byModel = local.byModel || {};
+        const fmtTok = n => n >= 1e6 ? (n/1e6).toFixed(2)+'M' : n >= 1000 ? (n/1000).toFixed(1)+'K' : String(n||0);
+        // 모델별 비용 단가 (input/output per M)
+        const modelPrice = {
+          'claude-sonnet-4-6': [3, 15],
+          'claude-haiku-4-5-20251001': [1, 5],
+          'claude-opus-4-6': [5, 25]
+        };
+        const calcCost = (model, inp, out) => {
+          const [ip, op] = modelPrice[model] || [3, 15];
+          return (inp/1e6*ip + out/1e6*op);
+        };
+        const estimateTotalCost = () => {
+          return Object.entries(byModel).reduce((sum, [m, d]) => sum + calcCost(m, d.input, d.output), 0);
+        };
+
+        // 전체 합계
+        const totalIn = Object.values(byDate).reduce((s,d) => s+d.input, 0);
+        const totalOut = Object.values(byDate).reduce((s,d) => s+d.output, 0);
+        const totalReq = Object.values(byDate).reduce((s,d) => s+d.requests, 0);
+
+        document.getElementById('totalInputTokens').textContent = fmtTok(totalIn);
+        document.getElementById('totalOutputTokens').textContent = fmtTok(totalOut);
+        document.getElementById('totalCost').textContent = '$' + estimateTotalCost().toFixed(4);
+        document.getElementById('totalRequests').textContent = totalReq.toLocaleString();
+
+        // 앱별 테이블
+        const appTbody = document.getElementById('usageAppBody');
+        const appEntries = Object.entries(byApp).sort((a,b) => b[1].requests - a[1].requests);
+        if (appEntries.length === 0) {
+          appTbody.innerHTML = '<tr><td colspan="4" style="padding:12px;color:#aaa;text-align:center;">아직 사용 내역 없음</td></tr>';
+        } else {
+          appTbody.innerHTML = appEntries.map(([app, d]) => `
+            <tr style="border-bottom:1px solid #f0f0f0;">
+              <td style="padding:8px 12px;font-weight:600;">${app}</td>
+              <td style="padding:8px 12px;text-align:right;">${fmtTok(d.input)}</td>
+              <td style="padding:8px 12px;text-align:right;">${fmtTok(d.output)}</td>
+              <td style="padding:8px 12px;text-align:right;">${d.requests.toLocaleString()}</td>
+            </tr>`).join('');
+        }
+
+        // 일별 테이블
+        const dateTbody = document.getElementById('usageDailyBody');
+        const sortedDates = Object.keys(byDate).sort().reverse();
+        if (sortedDates.length === 0) {
+          dateTbody.innerHTML = '<tr><td colspan="4" style="padding:12px;color:#aaa;text-align:center;">이번 달 사용 내역 없음</td></tr>';
+        } else {
+          dateTbody.innerHTML = sortedDates.map(date => {
+            const d = byDate[date];
+            return `<tr style="border-bottom:1px solid #f0f0f0;">
+              <td style="padding:8px 12px;">${date}</td>
+              <td style="padding:8px 12px;text-align:right;">${fmtTok(d.input)}</td>
+              <td style="padding:8px 12px;text-align:right;">${fmtTok(d.output)}</td>
+              <td style="padding:8px 12px;text-align:right;">${d.requests.toLocaleString()}</td>
+            </tr>`;
+          }).join('');
+        }
+
+        // Anthropic 공식 데이터 표시
+        const anthropicNote = document.getElementById('anthropicNote');
+        if (anthropicNote) {
+          if (r.anthropic) {
+            anthropicNote.textContent = '✅ Anthropic 공식 데이터 연동됨';
+            anthropicNote.style.color = '#2e7d32';
+          } else if (!r.hasAdminKey) {
+            anthropicNote.textContent = 'ℹ️ Admin API 키 등록 시 Anthropic 공식 사용량도 확인 가능합니다';
+            anthropicNote.style.color = '#888';
+          } else {
+            anthropicNote.textContent = '⚠️ Anthropic 공식 데이터 조회 실패 (로컬 로그만 표시)';
+            anthropicNote.style.color = '#f59e0b';
+          }
+        }
+
+        document.getElementById('usageSummary').style.display = 'block';
+      } catch(e) {
+        document.getElementById('usageLoading').style.display = 'none';
+        document.getElementById('usageError').textContent = '네트워크 오류: ' + e.message;
+        document.getElementById('usageError').style.display = 'block';
+      }
+    }
+
+    async function loadBackups() {
+      const filter = document.getElementById('backupAppFilter').value;
+      const backups = await api('GET', `/backups${filter ? '?appUrl=' + filter : ''}`);
+      const tbody = document.getElementById('backupsTableBody'), empty = document.getElementById('backupsEmptyState'), table = document.querySelector('#backupsTab .table-container');
+      if (!backups.length) { table.style.display = 'none'; empty.style.display = 'block'; return; }
+      table.style.display = 'block'; empty.style.display = 'none';
+      tbody.innerHTML = backups.map(b => {
+        const app = apps.find(a => a.url === b.appUrl);
+        const type = b.name.includes('auto') ? '<span class="badge badge-info backup-type">자동</span>' : '<span class="badge badge-secondary backup-type">수동</span>';
+        const size = formatSize(b.size);
+        return `<tr><td><strong>${app?.name || b.appUrl}</strong></td><td>${new Date(b.date).toLocaleString('ko-KR')}</td><td>${type}</td><td class="backup-size">${size}</td><td><div class="action-btns"><button class="btn btn-success btn-sm" onclick="restoreBackup('${b.appUrl}', '${b.name}')">복원</button><button class="btn btn-danger btn-sm" onclick="deleteBackup('${b.appUrl}', '${b.name}')">삭제</button></div></td></tr>`;
+      }).join('');
+    }
+
+    async function loadSettings() {
+      try {
+        const s = await api('GET', '/settings');
+        // 일반 API 키 상태
+        const statusEl = document.getElementById('currentKeyStatus');
+        if (s.anthropicApiKeyMasked) {
+          statusEl.textContent = '현재: ' + s.anthropicApiKeyMasked;
+          statusEl.style.color = '#2e7d32';
+        } else {
+          statusEl.textContent = '저장된 키 없음';
+          statusEl.style.color = '#888';
+        }
+        // Admin API 키 상태
+        const adminStatusEl = document.getElementById('currentAdminKeyStatus');
+        if (adminStatusEl) {
+          if (s.anthropicAdminApiKeyMasked) {
+            adminStatusEl.textContent = '현재: ' + s.anthropicAdminApiKeyMasked;
+            adminStatusEl.style.color = '#2e7d32';
+            loadAiUsage();
+          } else {
+            adminStatusEl.textContent = '저장된 Admin 키 없음';
+            adminStatusEl.style.color = '#888';
+            document.getElementById('usageEmpty').style.display = 'block';
+          }
+        }
+        // 기본 모델 상태
+        const modelSel = document.getElementById('defaultModel');
+        const modelStatus = document.getElementById('currentModelStatus');
+        if (modelSel && s.defaultModel) {
+          modelSel.value = s.defaultModel;
+          modelStatus.textContent = '현재 설정: ' + modelSel.options[modelSel.selectedIndex]?.text;
+          modelStatus.style.color = '#2e7d32';
+        } else if (modelStatus) {
+          modelStatus.textContent = '설정 없음 → Claude Sonnet 4.6 사용 중';
+          modelStatus.style.color = '#888';
+        }
+      } catch(e) {}
+    }
+
+    function openFolderModal() { document.getElementById('folderModal').classList.add('active'); document.getElementById('newFolderName').value = ''; }
+    function closeFolderModal() { document.getElementById('folderModal').classList.remove('active'); }
+
+    function openImageUploadModal() { document.getElementById('imageUploadModal').classList.add('active'); document.getElementById('imageFiles').value = ''; document.getElementById('imageFileNames').textContent = ''; }
+    function closeImageUploadModal() { document.getElementById('imageUploadModal').classList.remove('active'); }
+
+    async function restoreBackup(appUrl, backupName) {
+      if (!confirm(`"${backupName}" 백업으로 복원하시겠습니까?\n\n⚠️ 현재 앱이 이 백업으로 교체됩니다.`)) return;
+      const r = await api('POST', `/backups/${appUrl}/restore`, { backupName });
+      if (r.success) { alert('복원 완료!'); loadApps(); loadBackups(); }
+      else alert(r.error || '복원 실패');
+    }
+
+    async function saveAdminApiKey() {
+      const key = document.getElementById('anthropicAdminApiKey').value.trim();
+      if (!key) return alert('Admin API 키를 입력하세요');
+      if (!key.startsWith('sk-ant-')) return alert('올바른 키 형식이 아닙니다');
+      const r = await api('POST', '/settings', { anthropicAdminApiKey: key });
+      const msg = document.getElementById('apiKeySaveMsg');
+      if (r.success) {
+        msg.textContent = '✅ Admin API 키 저장됨';
+        msg.style.color = '#2e7d32'; msg.style.display = 'block';
+        document.getElementById('anthropicAdminApiKey').value = '';
+        loadSettings();
+        setTimeout(() => { msg.style.display = 'none'; }, 4000);
+      } else {
+        msg.textContent = '❌ 저장 실패: ' + (r.error || '');
+        msg.style.color = '#e53935'; msg.style.display = 'block';
+      }
+    }
+
+    async function saveApiKey() {
+      const key = document.getElementById('anthropicApiKey').value.trim();
+      if (!key) return alert('API 키를 입력하세요');
+      if (!key.startsWith('sk-ant-')) return alert('올바른 Anthropic API 키 형식이 아닙니다\n(sk-ant-... 로 시작해야 합니다)');
+      const r = await api('POST', '/settings', { anthropicApiKey: key });
+      const msg = document.getElementById('apiKeySaveMsg');
+      if (r.success) {
+        msg.textContent = '✅ API 키 저장됨. pm2 restart 후 앱에 적용됩니다.';
+        msg.style.color = '#2e7d32'; msg.style.display = 'block';
+        document.getElementById('anthropicApiKey').value = '';
+        loadSettings();
+        setTimeout(() => { msg.style.display = 'none'; }, 5000);
+      } else {
+        msg.textContent = '❌ 저장 실패: ' + (r.error || '');
+        msg.style.color = '#e53935'; msg.style.display = 'block';
+      }
+    }
+
+    async function saveDefaultModel() {
+      const model = document.getElementById('defaultModel').value;
+      const r = await api('POST', '/settings', { defaultModel: model });
+      const msg = document.getElementById('apiKeySaveMsg');
+      if (r.success) {
+        msg.textContent = '✅ 기본 모델 저장됨: ' + document.getElementById('defaultModel').options[document.getElementById('defaultModel').selectedIndex].text;
+        msg.style.color = '#2e7d32'; msg.style.display = 'block';
+        loadSettings();
+        setTimeout(() => { msg.style.display = 'none'; }, 4000);
+      } else {
+        msg.textContent = '❌ 저장 실패: ' + (r.error || '');
+        msg.style.color = '#e53935'; msg.style.display = 'block';
+      }
+    }
+
+    function showImageActions(p) { if (confirm(`${p}\n\n확인: 경로 복사\n취소: 삭제`)) { navigator.clipboard.writeText(`/api/images/${p}`); alert('복사됨: /api/images/' + p); } else if (confirm('삭제?')) deleteImage(p); }
+    async function deleteImage(p) { const r = await api('DELETE', `/images/${p}`); if (r.success) loadImages(currentImageFolder); }
+
+    function toggleApiKeyVisibility(inputId, btnId) {
+      const input = document.getElementById(inputId);
+      const btn = document.getElementById(btnId);
+      if (!input) return;
+      if (input.type === 'password') { input.type = 'text'; btn.textContent = '🙈 숨기기'; }
+      else { input.type = 'password'; btn.textContent = '👁 보기'; }
+    }
+
+    async function uploadImages() { const files = document.getElementById('imageFiles').files; if (!files.length) return alert('이미지 선택'); const fd = new FormData(); fd.append('folder', currentImageFolder); for (const f of files) fd.append('images', f); const r = await fetch('/api/admin/images', { method: 'POST', headers: { 'x-auth-token': token }, body: fd }).then(x => x.json()); if (r.success) { closeImageUploadModal(); loadImages(currentImageFolder); } else alert(r.error); }
+
+
     function copyToClipboard(text) {
       navigator.clipboard.writeText(text).then(() => alert('URL이 복사되었습니다!'));
     }
