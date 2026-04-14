@@ -493,7 +493,17 @@
   <div class="modal-overlay" id="folderModal">
     <div class="modal" style="max-width: 400px;">
       <div class="modal-header"><h3>새 폴더 만들기</h3><button class="modal-close" onclick="closeFolderModal()">&times;</button></div>
-      <div class="modal-body"><div class="form-group"><label>폴더 이름</label><input type="text" id="newFolderName" placeholder="예: characters"><small style="color:#999; display:block; margin-top:4px;">영문, 숫자, 한글, 하이픈(-) 사용 가능</small></div></div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>폴더 이름</label>
+          <input type="text" id="newFolderName" placeholder="예: characters">
+          <small style="color:#999; display:block; margin-top:4px;">영문, 숫자, 한글, 하이픈(-) 사용 가능</small>
+        </div>
+        <div class="form-group" style="margin-top:12px;">
+          <label>태그 <span style="color:#9ca3af;font-weight:400;font-size:12px;">(선택 · 나중에도 변경 가능)</span></label>
+          <input type="text" id="newFolderTag" placeholder="예: 게임, 유아스토리, 공통" style="margin-top:4px;">
+        </div>
+      </div>
       <div class="modal-footer"><button class="btn btn-secondary" onclick="closeFolderModal()">취소</button><button class="btn btn-primary" onclick="createFolder()">만들기</button></div>
     </div>
   </div>
@@ -907,13 +917,8 @@
       else alert(r.error || '백업 실패');
     }
 
-    function closeFolderModal() { document.getElementById('folderModal').classList.remove('active'); }
-    async function createFolder() { const name = document.getElementById('newFolderName').value.trim(); if (!name) return alert('폴더 이름 입력'); const r = await api('POST', '/images/folder', { folderName: name, parentFolder: currentImageFolder }); if (r.success) { closeFolderModal(); loadImages(currentImageFolder); } else alert(r.error); }
-
     function closeImageUploadModal() { document.getElementById('imageUploadModal').classList.remove('active'); }
     async function uploadImages() { const files = document.getElementById('imageFiles').files; if (!files.length) return alert('이미지 선택'); const fd = new FormData(); fd.append('folder', currentImageFolder); for (const f of files) fd.append('images', f); const r = await fetch('/api/admin/images', { method: 'POST', headers: { 'x-auth-token': token }, body: fd }).then(x => x.json()); if (r.success) { closeImageUploadModal(); loadImages(currentImageFolder); } else alert(r.error); }
-
-    async function createFolder() { const name = document.getElementById('newFolderName').value.trim(); if (!name) return alert('폴더 이름 입력'); const r = await api('POST', '/images/folder', { folderName: name, parentFolder: currentImageFolder }); if (r.success) { closeFolderModal(); loadImages(currentImageFolder); } else alert(r.error); }
     function openImageUploadModal() { document.getElementById('imageUploadModal').classList.add('active'); document.getElementById('imageFiles').value = ''; document.getElementById('imageFileNames').textContent = ''; }
 
     async function deleteAdminApiKey() {
@@ -936,7 +941,6 @@
     }
 
     async function deleteImage(p) { const r = await api('DELETE', `/images/${p}`); if (r.success) loadImages(currentImageFolder); }
-    function openFolderModal() { document.getElementById('folderModal').classList.add('active'); document.getElementById('newFolderName').value = ''; }
 
     function formatSize(bytes) {
       if (bytes < 1024) return bytes + ' B';
@@ -1095,9 +1099,6 @@
       } catch(e) {}
     }
 
-    function openFolderModal() { document.getElementById('folderModal').classList.add('active'); document.getElementById('newFolderName').value = ''; }
-    function closeFolderModal() { document.getElementById('folderModal').classList.remove('active'); }
-
     function openImageUploadModal() { document.getElementById('imageUploadModal').classList.add('active'); document.getElementById('imageFiles').value = ''; document.getElementById('imageFileNames').textContent = ''; }
     function closeImageUploadModal() { document.getElementById('imageUploadModal').classList.remove('active'); }
 
@@ -1173,6 +1174,27 @@
     async function uploadImages() { const files = document.getElementById('imageFiles').files; if (!files.length) return alert('이미지 선택'); const fd = new FormData(); fd.append('folder', currentImageFolder); for (const f of files) fd.append('images', f); const r = await fetch('/api/admin/images', { method: 'POST', headers: { 'x-auth-token': token }, body: fd }).then(x => x.json()); if (r.success) { closeImageUploadModal(); loadImages(currentImageFolder); } else alert(r.error); }
 
 
+    function openFolderModal() {
+      document.getElementById('folderModal').classList.add('active');
+      document.getElementById('newFolderName').value = '';
+      document.getElementById('newFolderTag').value = '';
+    }
+    function closeFolderModal() { document.getElementById('folderModal').classList.remove('active'); }
+    async function createFolder() {
+      const name = document.getElementById('newFolderName').value.trim();
+      if (!name) return alert('폴더 이름을 입력하세요');
+      const r = await api('POST', '/images/folder', { folderName: name, parentFolder: currentImageFolder });
+      if (!r.success) return alert(r.error);
+      // ★ 태그가 입력된 경우 저장
+      const tag = document.getElementById('newFolderTag').value.trim();
+      const folderKey = currentImageFolder ? `${currentImageFolder}/${name}` : name;
+      if (tag) {
+        await api('PUT', '/image-folder-categories', { folder: folderKey, categoryId: tag });
+        imageFolderCats[folderKey] = tag;
+      }
+      closeFolderModal();
+      loadImages(currentImageFolder);
+    }
     function copyToClipboard(text) {
       navigator.clipboard.writeText(text).then(() => alert('URL이 복사되었습니다!'));
     }
