@@ -548,6 +548,10 @@
           </div>
           <small style="color:#999; display:block; margin-top:8px;">동일한 파일명이 있으면 덮어씁니다</small>
         </div>
+        <div class="form-group" style="margin-top:12px;">
+          <label>태그 <span style="color:#9ca3af;font-weight:400;font-size:12px;">(선택 · 나중에도 변경 가능)</span></label>
+          <input type="text" id="downloadFileTag" placeholder="예: 설치파일, 런처, 업데이트" style="margin-top:4px;">
+        </div>
       </div>
       <div class="modal-footer"><button class="btn btn-secondary" onclick="closeDownloadUploadModal()">취소</button><button class="btn btn-primary" onclick="uploadDownloadFile()">업로드</button></div>
     </div>
@@ -1204,6 +1208,7 @@
       document.getElementById('appEditModal').classList.remove('active');
       document.getElementById('downloadFile').value = '';
       document.getElementById('downloadFileName').textContent = '';
+      document.getElementById('downloadFileTag').value = '';
       document.getElementById('downloadUploadModal').classList.add('active');
     }
 
@@ -1229,6 +1234,12 @@
       }).then(x => x.json());
       
       if (r.success) {
+        // ★ 태그가 입력된 경우 저장
+        const tag = document.getElementById('downloadFileTag').value.trim();
+        if (tag && r.file?.name) {
+          await api('PUT', '/download-file-categories', { filename: r.file.name, categoryId: tag });
+          downloadFileCats[r.file.name] = tag;
+        }
         closeDownloadUploadModal();
         loadDownloads();
         alert('업로드 완료!\n\nURL: ' + window.location.origin + r.file.url);
