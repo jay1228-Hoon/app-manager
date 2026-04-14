@@ -66,6 +66,11 @@
     .file-upload:hover { border-color: #4A90D9; background: #f8f9fa; }
     .file-upload.has-file { border-color: #27ae60; background: #d4edda; }
     .file-upload input { display: none; }
+    .cat-pill { padding:4px 12px;border-radius:20px;border:1.5px solid #d1d5db;background:#fff;font-size:12px;cursor:pointer;font-family:inherit;transition:all .15s; }
+    .cat-pill.active { background:#4f46e5;border-color:#4f46e5;color:#fff;font-weight:700; }
+    .cat-pill:hover:not(.active) { border-color:#4f46e5;color:#4f46e5; }
+    .folder-cat-badge { font-size:9px;padding:1px 6px;border-radius:10px;background:#eef2ff;color:#4f46e5;font-weight:600;margin-left:4px;cursor:pointer;vertical-align:middle; }
+    .folder-item.cat-hidden { display:none; }
     .file-upload .file-name { margin-top: 8px; font-size: 13px; color: #666; }
     .folder-path { display: flex; align-items: center; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
     .path-item { color: #4A90D9; cursor: pointer; }
@@ -164,6 +169,10 @@
       <!-- 공통 이미지 탭 -->
       <div class="tab-content" id="imagesTab">
         <div class="list-header"><h2>공통 이미지 관리</h2><div class="filter-group"><button class="btn btn-secondary" onclick="openFolderModal()">📁 새 폴더</button><button class="btn btn-primary" onclick="openImageUploadModal()">+ 이미지 업로드</button></div></div>
+        <!-- ★ 카테고리 필터 -->
+        <div id="imageCatFilter" style="display:flex;gap:6px;flex-wrap:wrap;padding:8px 0 4px;border-bottom:1px solid #e5e7eb;margin-bottom:8px;">
+          <button class="cat-pill active" data-cat="" onclick="setImageCatFilter('')">전체</button>
+        </div>
         <div class="folder-path"><span>📁</span><span class="path-item" onclick="loadImages('')">images</span><span id="currentPathDisplay"></span></div>
         <div class="folder-grid" id="folderGrid"></div>
         <div class="images-grid" id="imagesGrid"></div>
@@ -173,11 +182,16 @@
       <div class="tab-content" id="downloadsTab">
         <div class="list-header">
           <h2>다운로드 파일 관리</h2>
-          <button class="btn btn-primary" onclick="openDownloadUploadModal()">+ 파일 업로드</button>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <select id="dlCatFilter" onchange="renderDownloads()" style="padding:6px 10px;border:1px solid #d0d0d0;border-radius:8px;font-size:13px;background:#fff;">
+              <option value="">전체 태그</option>
+            </select>
+            <button class="btn btn-primary" onclick="openDownloadUploadModal()">+ 파일 업로드</button>
+          </div>
         </div>
         <div class="table-container">
           <table>
-            <thead><tr><th>파일명</th><th>크기</th><th>업로드 일시</th><th>다운로드 URL</th><th>작업</th></tr></thead>
+            <thead><tr><th>파일명</th><th>카테고리</th><th>크기</th><th>업로드 일시</th><th>다운로드 URL</th><th>작업</th></tr></thead>
             <tbody id="downloadsTableBody"></tbody>
           </table>
         </div>
@@ -444,6 +458,10 @@
 
   <script>
     let token = localStorage.getItem('admin_token'), currentImageFolder = '', categories = [], apps = [];
+    let imageFolderCats = {};   // { folderName: tag }
+    let downloadFileCats = {};  // { filename: tag }
+    let imageCatFilter = '';    // 현재 이미지 카테고리 필터
+    let downloadFiles = [];
 
     async function api(method, endpoint, data = null) {
       const options = { method, headers: { 'x-auth-token': token } };
@@ -571,9 +589,52 @@
       const pd = document.getElementById('currentPathDisplay');
       if (folder) { const parts = folder.split('/'); let html = '', acc = ''; parts.forEach((p, i) => { acc += (i ? '/' : '') + p; html += ` / <span class="path-item" onclick="loadImages('${acc}')">${p}</span>`; }); pd.innerHTML = html; } else pd.innerHTML = '';
       document.getElementById('uploadLocationDisplay').textContent = folder ? `/images/${folder}` : '/images';
+
+      // 루트일 때 태그 매핑 로드 + 필터 pill 갱신
+      if (!folder) {
+        const cr = await api('GET', '/image-folder-categories').catch(() => ({ categories: {} }));
+        imageFolderCats = cr.categories || {};
+        refreshImageTagPills();
+      }
+
       const r = await api('GET', `/images?folder=${encodeURIComponent(folder)}`);
-      document.getElementById('folderGrid').innerHTML = (r.folders || []).map(f => `<div class="folder-item" onclick="loadImages('${folder ? folder + '/' + f : f}')"><div class="folder-icon">📁</div><div class="folder-name">${f}</div></div>`).join('');
+      const folders = r.folders || [];
+      document.getElementById('folderGrid').innerHTML = folders.map(f => {
+        const fullPath = folder ? `${folder}/${f}` : f;
+        const tag = !folder ? (imageFolderCats[f] || '') : '';
+        const tagBadge = !folder
+          ? `<span class="folder-cat-badge" title="태그 변경" onclick="event.stopPropagation();setFolderCategory('${f}')">${tag || '태그없음'}</span>`
+          : '';
+        const hidden = (!folder && imageCatFilter && tag !== imageCatFilter) ? 'cat-hidden' : '';
+        return `<div class="folder-item ${hidden}" onclick="loadImages('${fullPath}')"><div class="folder-icon">📁</div><div class="folder-name">${f}${tagBadge}</div></div>`;
+      }).join('');
       document.getElementById('imagesGrid').innerHTML = (r.files || []).map(f => { const p = folder ? `${folder}/${f.name}` : f.name; return `<div class="image-item" onclick="showImageActions('${p}')"><img src="/api/images/${p}" onerror="this.style.background='#eee'"><div class="image-name">${f.name}</div></div>`; }).join('');
+    }
+
+    function refreshImageTagPills() {
+      const tags = [...new Set(Object.values(imageFolderCats).filter(t => t))].sort();
+      const bar = document.getElementById('imageCatFilter');
+      if (!bar) return;
+      bar.innerHTML = `<button class="cat-pill ${!imageCatFilter ? 'active' : ''}" data-cat="" onclick="setImageCatFilter('')">전체</button>`
+        + tags.map(t => `<button class="cat-pill ${imageCatFilter === t ? 'active' : ''}" data-cat="${t}" onclick="setImageCatFilter('${t}')">${t}</button>`).join('');
+    }
+
+    function setImageCatFilter(catId) {
+      imageCatFilter = catId;
+      document.querySelectorAll('#imageCatFilter .cat-pill').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.cat === catId);
+      });
+      loadImages('');
+    }
+
+    async function setFolderCategory(folder) {
+      const current = imageFolderCats[folder] || '';
+      const input = prompt(`[${folder}] 폴더 태그 설정\n현재: ${current || '없음'}\n\n태그명 입력 (비우면 제거):`, current);
+      if (input === null) return;
+      const tag = input.trim();
+      await api('PUT', '/image-folder-categories', { folder, categoryId: tag });
+      imageFolderCats[folder] = tag;
+      loadImages('');
     }
     function showImageActions(p) { if (confirm(`${p}\n\n확인: 경로 복사\n취소: 삭제`)) { navigator.clipboard.writeText(`/api/images/${p}`); alert('복사됨: /api/images/' + p); } else if (confirm('삭제?')) deleteImage(p); }
     async function deleteImage(p) { const r = await api('DELETE', `/images/${p}`); if (r.success) loadImages(currentImageFolder); }
@@ -850,37 +911,74 @@
     let downloadFiles = [];
 
     async function loadDownloads() {
-      const r = await api('GET', '/downloads');
+      const [r, cr] = await Promise.all([
+        api('GET', '/downloads'),
+        api('GET', '/download-file-categories').catch(() => ({ categories: {} }))
+      ]);
       if (r.success) {
         downloadFiles = r.files;
+        downloadFileCats = cr.categories || {};
+        refreshDownloadTagFilter();
         renderDownloads();
       }
+    }
+
+    function refreshDownloadTagFilter() {
+      const tags = [...new Set(Object.values(downloadFileCats).filter(t => t))].sort();
+      const sel = document.getElementById('dlCatFilter');
+      if (!sel) return;
+      const cur = sel.value;
+      sel.innerHTML = '<option value="">전체 태그</option>'
+        + tags.map(t => `<option value="${t}"${cur===t?' selected':''}>${t}</option>`).join('');
     }
 
     function renderDownloads() {
       const tbody = document.getElementById('downloadsTableBody');
       const empty = document.getElementById('downloadsEmptyState');
-      
-      if (downloadFiles.length === 0) {
+      const filterTag = document.getElementById('dlCatFilter')?.value || '';
+
+      const filtered = filterTag
+        ? downloadFiles.filter(f => downloadFileCats[f.name] === filterTag)
+        : downloadFiles;
+
+      if (filtered.length === 0) {
         tbody.innerHTML = '';
         empty.style.display = 'block';
         return;
       }
-      
+
       empty.style.display = 'none';
-      tbody.innerHTML = downloadFiles.map(f => {
+      tbody.innerHTML = filtered.map(f => {
         const fullUrl = window.location.origin + f.url;
+        const tag = downloadFileCats[f.name] || '';
+        const tagBadge = tag
+          ? `<span class="folder-cat-badge">${tag}</span>`
+          : '<span style="font-size:10px;color:#9ca3af;">태그없음</span>';
         return `<tr>
           <td><strong>${f.name}</strong></td>
+          <td>
+            ${tagBadge}
+            <input type="text" value="${tag}" placeholder="태그 입력"
+              style="font-size:11px;padding:2px 6px;border:1px solid #d0d0d0;border-radius:6px;width:80px;margin-left:4px;"
+              onchange="setDownloadFileCat('${f.name}',this.value.trim())"
+              onkeydown="if(event.key==='Enter'){setDownloadFileCat('${f.name}',this.value.trim());this.blur();}">
+          </td>
           <td>${f.sizeFormatted}</td>
           <td>${new Date(f.uploadedAt).toLocaleString('ko-KR')}</td>
-          <td><input type="text" value="${fullUrl}" readonly style="width:300px;padding:4px 8px;border:1px solid #ddd;border-radius:4px;font-size:12px;" onclick="this.select()"> <button class="btn btn-sm btn-secondary" onclick="copyToClipboard('${fullUrl}')">복사</button></td>
+          <td><input type="text" value="${fullUrl}" readonly style="width:240px;padding:4px 8px;border:1px solid #ddd;border-radius:4px;font-size:12px;" onclick="this.select()"> <button class="btn btn-sm btn-secondary" onclick="copyToClipboard('${fullUrl}')">복사</button></td>
           <td class="action-btns">
             <a href="${f.url}" download class="btn btn-sm btn-success">다운로드</a>
             <button class="btn btn-sm btn-danger" onclick="deleteDownloadFile('${f.name}')">삭제</button>
           </td>
         </tr>`;
       }).join('');
+    }
+
+    async function setDownloadFileCat(filename, tag) {
+      await api('PUT', '/download-file-categories', { filename, categoryId: tag });
+      downloadFileCats[filename] = tag;
+      refreshDownloadTagFilter();
+      renderDownloads();
     }
 
     function copyToClipboard(text) {
